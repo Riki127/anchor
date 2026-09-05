@@ -1,20 +1,44 @@
 import { useState } from "react";
 
-import { startSession, submitAnswer } from "./api";
+import { getSession, startSession, submitAnswer } from "./api";
+import { HomeScreen } from "./screens/HomeScreen";
 import { QuestionScreen, type QAEntry } from "./screens/QuestionScreen";
 import { ResultsScreen } from "./screens/ResultsScreen";
 import { StartScreen } from "./screens/StartScreen";
 import type { Verdict } from "./types";
 
 type Screen =
+  | { kind: "home" }
   | { kind: "start" }
   | { kind: "question"; sessionId: number; history: QAEntry[]; question: string }
   | { kind: "results"; verdict: Verdict; rationale: string; recommendation: string };
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>({ kind: "start" });
+  const [screen, setScreen] = useState<Screen>({ kind: "home" });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleStartNew() {
+    setError(null);
+    setScreen({ kind: "start" });
+  }
+
+  async function handleViewLast(sessionId: number) {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await getSession(sessionId);
+      if (res.verdict && res.rationale && res.recommendation) {
+        setScreen({ kind: "results", verdict: res.verdict, rationale: res.rationale, recommendation: res.recommendation });
+      } else {
+        setError("That check-in doesn't have a result yet.");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   async function handleStart(roleTitle: string) {
     setIsLoading(true);
@@ -48,6 +72,11 @@ export default function App() {
     }
   }
 
+  if (screen.kind === "home") {
+    return (
+      <HomeScreen onStartNew={handleStartNew} onViewLast={handleViewLast} isLoading={isLoading} error={error} />
+    );
+  }
   if (screen.kind === "start") {
     return <StartScreen onStart={handleStart} isLoading={isLoading} error={error} />;
   }

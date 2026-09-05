@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 from app.models import Verdict
@@ -60,3 +62,9 @@ class SessionRead(BaseModel):
     verdict: str | None = None
     rationale: str | None = None
     recommendation: str | None = None
+
+
+class EmployeeStatus(BaseModel):
+    has_completed_session: bool
+    last_completed_at: datetime | None = None
+    last_session_id: int | None = None

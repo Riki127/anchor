@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+import { goToStartScreen } from "./helpers";
+
 test("employee completes assessment and sees a verdict", async ({ page }) => {
-  await page.goto("/");
+  await goToStartScreen(page);
   await page.getByTestId("role-title-input").fill("Software Engineer");
   await page.getByTestId("start-button").click();
 
