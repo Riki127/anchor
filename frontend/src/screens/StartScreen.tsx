@@ -10,28 +10,37 @@ export function StartScreen({ onStart, isLoading, error }: StartScreenProps) {
   const [roleTitle, setRoleTitle] = useState("");
 
   return (
-    <div className="max-w-md mx-auto mt-16 p-6">
-      <h1 className="text-2xl font-semibold mb-4">Employee Skill Assessment</h1>
-      <label htmlFor="role-title" className="block mb-2 text-sm font-medium">
-        What's your current role?
-      </label>
-      <input
-        id="role-title"
-        data-testid="role-title-input"
-        className="w-full border rounded px-3 py-2 mb-4"
-        value={roleTitle}
-        onChange={(e) => setRoleTitle(e.target.value)}
-        placeholder="e.g. Software Engineer"
-      />
-      {error && <p className="text-red-600 mb-4">{error}</p>}
-      <button
-        data-testid="start-button"
-        className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
-        disabled={isLoading || roleTitle.trim().length === 0}
-        onClick={() => onStart(roleTitle.trim())}
-      >
-        {isLoading ? "Starting..." : "Start Assessment"}
-      </button>
+    <div className="min-h-screen flex items-center justify-center px-6">
+      <div className="w-full max-w-lg">
+        <p className="font-sans text-sm text-ink-muted mb-3">Skill assessment</p>
+        <p className="font-serif text-3xl leading-snug text-ink mb-8">
+          Let's talk through your role. What's your current title?
+        </p>
+        <label htmlFor="role-title" className="sr-only">
+          Your current role
+        </label>
+        <input
+          id="role-title"
+          data-testid="role-title-input"
+          className="w-full bg-paper-light border border-ink/15 rounded-md px-4 py-3 font-sans text-ink placeholder:text-ink-muted/70 mb-5 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal"
+          value={roleTitle}
+          onChange={(e) => setRoleTitle(e.target.value)}
+          placeholder="e.g. Software Engineer"
+        />
+        {error && (
+          <p className="font-sans text-sm text-rose mb-5" role="alert">
+            {error}
+          </p>
+        )}
+        <button
+          data-testid="start-button"
+          className="font-sans font-medium text-paper-light bg-teal px-5 py-3 rounded-md disabled:opacity-50 hover:bg-teal/90 transition-colors"
+          disabled={isLoading || roleTitle.trim().length === 0}
+          onClick={() => onStart(roleTitle.trim())}
+        >
+          {isLoading ? "Starting..." : "Start the conversation"}
+        </button>
+      </div>
     </div>
   );
 }

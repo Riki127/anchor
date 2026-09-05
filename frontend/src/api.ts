@@ -1,4 +1,4 @@
-import type { AnswerResponse, SessionRead, SessionStartResponse } from "./types";
+import type { AnswerResponse, EmployeeStatus, SessionRead, SessionStartResponse } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -33,6 +33,14 @@ export async function getSession(sessionId: number): Promise<SessionRead> {
   const res = await fetch(`${API_BASE}/sessions/${sessionId}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch session: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function getEmployeeStatus(): Promise<EmployeeStatus> {
+  const res = await fetch(`${API_BASE}/employee/status`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch status: ${res.status}`);
   }
   return res.json();
 }

@@ -9,6 +9,12 @@ was actually asked or answered, and evaluations that vary by whoever runs
 them. This app should replace that with a consistent, role-aware, AI-driven
 assessment process that produces a defensible, repeatable evaluation.
 
+Just as important as the evaluation itself: this tool exists to help people
+grow, not just to measure them. An employee walking away should feel
+encouraged and motivated by a concrete, personal next step — regardless of
+verdict — not like they were graded and sent away. That framing should carry
+through the whole experience, not just the recommendation text at the end.
+
 ## Users
 
 - **Employee** — takes the assessment; answers a dynamic, role-relevant
@@ -38,6 +44,13 @@ assessment process that produces a defensible, repeatable evaluation.
     existing roles and decides if one is an equivalent match. If the LLM
     isn't confident (ambiguous/borderline match), it falls back to asking
     the admin to confirm or reject the match instead of guessing.
+- Before starting an assessment, the employee sees a brief welcome step that
+  sets expectations and tone: what this is for (growth and recommendations,
+  not a pass/fail exam), roughly what to expect (a short conversation), and
+  that it leads to a concrete next step regardless of outcome. This is what
+  primes the supportive, coaching framing the rest of the experience is
+  built around — the assessment itself shouldn't be the employee's first
+  signal of what this tool is for.
 - Start an assessment session for an employee against their current role.
 - AI agent dynamically generates role-relevant questions for the session,
   adapting based on prior answers within that session.
@@ -64,15 +77,47 @@ assessment process that produces a defensible, repeatable evaluation.
     reach the next role tier.
 - Employees, managers, and admins can view past sessions and their results
   (scoped to what each role is permitted to see).
+- Assessment cadence is adaptive per employee, not a fixed company-wide
+  cycle — roughly every six months to a year as a default rhythm, but an
+  employee who already feels well-placed and is performing well can go
+  longer between check-ins, or skip them, without it being flagged as
+  overdue. The tool surfaces where someone stands (e.g. "last check-in:
+  7 months ago") as an open invitation, never as a compliance deadline.
+
+## Application structure
+
+This tool is used occasionally, not daily, and usage looks different by
+role — so it shouldn't be built like a dense, always-on platform (e.g. a
+university LMS with a persistent multi-level sidebar for juggling many
+concurrent courses). Nothing about this product needs that: employees
+don't have many parallel assessments to navigate between, and the core
+experience isn't something people check into routinely.
+
+- **Employee experience** — minimal chrome. A simple home screen shows
+  where they stand (their own check-in status/history, framed as an
+  invitation rather than a deadline) and leads into the assessment
+  conversation itself, which stays a focused, full-screen, distraction-free
+  experience — closer to a conversational survey tool than a page inside a
+  larger app shell.
+- **Manager/admin experience** — closer to a conventional lightweight
+  dashboard: a list/table of their team, or of role configuration,
+  sortable by things like time since last check-in, so a manager can
+  notice who might be due without the system forcing a cycle on anyone.
+- Global navigation stays minimal across the whole app (a slim top bar,
+  not a dense persistent sidebar) — this product doesn't have the "many
+  concurrent things to juggle" problem that heavier navigation exists to
+  solve.
 
 ## User flows
 
-1. **Take an assessment** — Employee starts a session for their role → AI
-   asks a question → employee answers → AI asks the next role-relevant
-   question (or hands-on exercise) using prior context → ... → the agent
-   decides it has enough information (or the 50-question/exercise cap is
-   reached) → session ends → evaluation agent scores the full session →
-   result and learning recommendation are stored and shown.
+1. **Take an assessment** — Employee opens the tool and sees a brief welcome
+   step (what this is, why it exists, what to expect) → starts a session
+   for their role → AI asks a question → employee answers → AI asks the
+   next role-relevant question (or hands-on exercise) using prior context
+   → ... → the agent decides it has enough information (or the
+   50-question/exercise cap is reached) → session ends → evaluation agent
+   scores the full session → result and learning recommendation are stored
+   and shown.
 2. **Review results** — Manager/admin opens a completed session → sees the
    verdict (below/meeting/exceeding), rationale, learning recommendation,
    and the underlying QA transcript.
@@ -80,6 +125,53 @@ assessment process that produces a defensible, repeatable evaluation.
    employee's job title) → agent checks for an existing, effectively-equal
    role and reuses its rubric, or infers a new career ladder and tier
    rubric for it → admin can review and force regeneration if needed.
+
+## Future direction
+
+Not yet designed or scheduled — noted here so it shapes decisions along the
+way (e.g. not building anything that would make this harder later), not as
+a commitment to build it next.
+
+- **Role-fit assessment.** Today's assessment always evaluates an employee
+  against the role they say they currently hold. At some point, this should
+  extend to a different question: given what an employee has demonstrated
+  and cares about, which role might actually be the most fitting, rewarding
+  place for them — not necessarily the one they're in today. This is a
+  career-pathing / internal-mobility capability, distinct from "how are you
+  doing in your current role," meant to inform a discussion between the
+  employee and their manager, not to hand down an automated verdict.
+
+  The goal is a rounded picture of fit, not a single score, drawn from
+  established, well-evidenced frameworks rather than pop-psychology
+  instruments — and surfaced through the same kind of ongoing coaching
+  conversation the rest of this tool uses, not a battery of separate
+  formal tests:
+  - **Person-job fit** — already covered by the existing skill assessment.
+  - **Person-vocation fit** — what kind of work energizes this person at
+    all, drawing on Holland's RIASEC interest model (well-validated,
+    already standard in career counseling) and Schein's Career Anchors
+    (what someone would never trade away in a career — autonomy, technical
+    mastery, stability, managing people, pure challenge, service to a
+    cause, and so on). Schein's own method for surfacing anchors is a
+    structured interview, which maps directly onto a coaching conversation.
+  - **Motivation** — grounded in Self-Determination Theory (autonomy,
+    competence, relatedness), the strongest evidence base for what makes
+    work intrinsically motivating for a specific person. This fits the
+    tool's actual goal (encourage and motivate) better than personality
+    typing does.
+  - **Work style**, if it's included at all — Big Five (OCEAN), inferred
+    from how someone talks about their work across the conversation rather
+    than a forced-choice quiz. Not MBTI: it's popular but has weak
+    test-retest reliability and doesn't reliably predict job or role
+    performance in the actual research.
+
+  Deliberately excluded: any clinical or licensed psychometric instrument,
+  and anything about an employee's personal life or circumstances (family
+  status, health, life stage) — several of those are protected categories
+  in most jurisdictions, and using them to inform role/job decisions is
+  real discrimination-liability territory even if unintentional. Logistics
+  preferences (remote/on-site, travel, shift flexibility) are fine; a
+  person's life circumstances are not.
 
 ## Out of scope
 

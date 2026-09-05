@@ -29,3 +29,9 @@ export interface SessionRead {
   rationale?: string | null;
   recommendation?: string | null;
 }
+
+export interface EmployeeStatus {
+  has_completed_session: boolean;
+  last_completed_at?: string | null;
+  last_session_id?: number | null;
+}

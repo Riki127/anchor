@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+import { goToStartScreen } from "./helpers";
+
 test("answering a completed session returns 409", async ({ page, request }) => {
-  await page.goto("/");
+  await goToStartScreen(page);
   await page.getByTestId("role-title-input").fill("Software Engineer");
 
   const [startResponse] = await Promise.all([
