@@ -9,8 +9,8 @@ Main reason for this project is to learn Agentic AI Engineering
 - **Backend:** FastAPI + SQLModel + Postgres (`backend/`)
 - **Frontend:** React + TypeScript + Vite + Tailwind (`frontend/`)
 - **AI provider:** a deterministic mock by default (`backend/app/ai/mock.py`), or the
-  real Claude API (`backend/app/ai/anthropic_provider.py`) — both implement the same
-  interface, injected via a FastAPI dependency (`app.ai.get_ai_provider`), and are
+  real Claude API (`backend/app/ai/anthropic_provider.py`) or OpenAI Responses API
+  (`backend/app/ai/openai_provider.py`) — all implement the same interface, injected via a FastAPI dependency (`app.ai.get_ai_provider`), and are
   switched with the `AI_PROVIDER` setting (see step 2).
 
 ## Prerequisites
@@ -47,20 +47,28 @@ Tables are created automatically on startup.
 The database URL can be overridden with the `DATABASE_URL` environment variable; it
 defaults to `postgresql+psycopg://postgres:postgres@localhost:5432/employee_eval`.
 
-### Using the real Claude API instead of the mock
+### Using a real AI provider instead of the mock
 
 By default the app uses a free, deterministic mock AI provider - no API key needed.
-To use real Claude-generated questions and evaluations instead:
+To use real Claude- or OpenAI-generated questions and evaluations instead:
 
 ```bash
 cp .env.example .env
 ```
 
-Then edit `backend/.env`:
+Then edit `backend/.env` for Claude:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...   # from https://console.anthropic.com
 AI_PROVIDER=anthropic
+```
+
+Or for OpenAI (the default model is `gpt-5.6-terra`):
+
+```
+OPENAI_API_KEY=sk-...
+AI_PROVIDER=openai
+OPENAI_MODEL=gpt-5.6-terra
 ```
 
 `backend/.env` is gitignored and read automatically on startup - restart `uvicorn`

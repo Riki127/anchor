@@ -8,8 +8,10 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/employee_eval"
     session_question_count: int = 5
-    ai_provider: Literal["mock", "anthropic"] = "mock"
+    ai_provider: Literal["mock", "anthropic", "openai"] = "mock"
     anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-5.6-terra"
 
 
 settings = Settings()

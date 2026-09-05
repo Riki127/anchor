@@ -1,8 +1,11 @@
+import pytest
+
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.ai import get_ai_provider
 from app.ai.mock import MockAIProvider
+from app.config import settings
 from app.db import get_session
 from app.main import app
 from app.models import AssessmentSession, QAPair, Role, SessionStatus
@@ -11,6 +14,13 @@ from app.models import AssessmentSession, QAPair, Role, SessionStatus
 class _FailingProvider(MockAIProvider):
     def generate_next_question(self, role: Role, qa_history: list[QAPair]) -> None:
         raise RuntimeError("mock provider exploded")
+
+
+def test_openai_provider_is_selected_from_settings(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "ai_provider", "openai")
+    monkeypatch.setattr(settings, "openai_api_key", "test-key")
+
+    assert type(get_ai_provider()).__name__ == "OpenAIProvider"
 
 
 def make_client(db_session: Session) -> TestClient:
