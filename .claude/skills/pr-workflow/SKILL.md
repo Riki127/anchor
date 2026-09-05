@@ -10,24 +10,33 @@ whatever `finishing-a-development-branch` already handles (test verification,
 the merge/PR/keep-as-is menu, worktree cleanup mechanics - read that skill for
 those mechanics; this one is just the project-specific layer on top).
 
-## 1. Claude never creates or submits the PR
+## 1. Claude creates the PR itself, via `gh`
 
-The user creates every PR themselves, by clicking "Create pull request" on
-GitHub. Never use `gh pr create`, the GitHub API, or browser automation to
-submit one, even if browser tooling happens to be available and the user is
-signed in. This isn't a capability gap to work around - it's the workflow the
-user asked to keep, because they want the final "make this real" action to be
-theirs.
+Push the branch, then run `gh pr create --title ... --body ...` and hand back
+the resulting URL. This requires the GitHub CLI to be installed and
+authenticated on the user's machine (`gh auth login` - their own OAuth flow;
+Claude never sees or handles a token). If `gh auth status` shows no active
+login, say so and ask the user to run `gh auth login` rather than trying a
+workaround (raw API calls with a pasted token, browser automation, etc.).
 
-What Claude *does* do every time, unprompted:
-- Push the branch (if not already pushed).
-- Give the user the exact PR creation URL (`https://github.com/<owner>/<repo>/pull/new/<branch>`).
+Every time, before creating it:
 - **Propose a title.** Short, imperative, specific to what the branch actually
   contains - not a generic "Update code" or the literal branch name. If the
   branch covers several distinct pieces of work, name the throughline, not
   every sub-item.
-- Propose a description the user can paste in, covering what changed and why
-  a reviewer would care - not a commit-by-commit changelog.
+- Propose a description covering what changed and why a reviewer would care -
+  not a commit-by-commit changelog.
+
+This is a standing authorization from the user - once the title and
+description are shown, create the PR without a separate "may I proceed?"
+question each time; that's the whole point of the user setting this rule up
+once instead of approving it per PR. Still surface the title/description so
+they see it, and still stop and ask if something about a given PR is
+genuinely ambiguous (e.g. unclear which base branch it targets).
+
+**Exception:** an in-flight PR the user already said they'd create themselves
+stays theirs to create, even after this rule is adopted - don't retroactively
+take over a PR that was already being handled manually.
 
 ## 2. Each new feature/deliverable gets its own fresh branch
 
