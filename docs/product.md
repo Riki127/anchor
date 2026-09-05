@@ -104,12 +104,44 @@ a commitment to build it next.
 
 - **Role-fit assessment.** Today's assessment always evaluates an employee
   against the role they say they currently hold. At some point, this should
-  extend to a different question: given what an employee has demonstrated,
-  which role might actually be the best fit for them — not necessarily the
-  one they're in today. This is a career-pathing / internal-mobility
-  capability, distinct from "how are you doing in your current role," and
-  would likely mean comparing an employee's demonstrated skills against
-  multiple role rubrics rather than just one.
+  extend to a different question: given what an employee has demonstrated
+  and cares about, which role might actually be the most fitting, rewarding
+  place for them — not necessarily the one they're in today. This is a
+  career-pathing / internal-mobility capability, distinct from "how are you
+  doing in your current role," meant to inform a discussion between the
+  employee and their manager, not to hand down an automated verdict.
+
+  The goal is a rounded picture of fit, not a single score, drawn from
+  established, well-evidenced frameworks rather than pop-psychology
+  instruments — and surfaced through the same kind of ongoing coaching
+  conversation the rest of this tool uses, not a battery of separate
+  formal tests:
+  - **Person-job fit** — already covered by the existing skill assessment.
+  - **Person-vocation fit** — what kind of work energizes this person at
+    all, drawing on Holland's RIASEC interest model (well-validated,
+    already standard in career counseling) and Schein's Career Anchors
+    (what someone would never trade away in a career — autonomy, technical
+    mastery, stability, managing people, pure challenge, service to a
+    cause, and so on). Schein's own method for surfacing anchors is a
+    structured interview, which maps directly onto a coaching conversation.
+  - **Motivation** — grounded in Self-Determination Theory (autonomy,
+    competence, relatedness), the strongest evidence base for what makes
+    work intrinsically motivating for a specific person. This fits the
+    tool's actual goal (encourage and motivate) better than personality
+    typing does.
+  - **Work style**, if it's included at all — Big Five (OCEAN), inferred
+    from how someone talks about their work across the conversation rather
+    than a forced-choice quiz. Not MBTI: it's popular but has weak
+    test-retest reliability and doesn't reliably predict job or role
+    performance in the actual research.
+
+  Deliberately excluded: any clinical or licensed psychometric instrument,
+  and anything about an employee's personal life or circumstances (family
+  status, health, life stage) — several of those are protected categories
+  in most jurisdictions, and using them to inform role/job decisions is
+  real discrimination-liability territory even if unintentional. Logistics
+  preferences (remote/on-site, travel, shift flexibility) are fine; a
+  person's life circumstances are not.
 
 ## Out of scope
 
