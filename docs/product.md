@@ -77,6 +77,36 @@ through the whole experience, not just the recommendation text at the end.
     reach the next role tier.
 - Employees, managers, and admins can view past sessions and their results
   (scoped to what each role is permitted to see).
+- Assessment cadence is adaptive per employee, not a fixed company-wide
+  cycle — roughly every six months to a year as a default rhythm, but an
+  employee who already feels well-placed and is performing well can go
+  longer between check-ins, or skip them, without it being flagged as
+  overdue. The tool surfaces where someone stands (e.g. "last check-in:
+  7 months ago") as an open invitation, never as a compliance deadline.
+
+## Application structure
+
+This tool is used occasionally, not daily, and usage looks different by
+role — so it shouldn't be built like a dense, always-on platform (e.g. a
+university LMS with a persistent multi-level sidebar for juggling many
+concurrent courses). Nothing about this product needs that: employees
+don't have many parallel assessments to navigate between, and the core
+experience isn't something people check into routinely.
+
+- **Employee experience** — minimal chrome. A simple home screen shows
+  where they stand (their own check-in status/history, framed as an
+  invitation rather than a deadline) and leads into the assessment
+  conversation itself, which stays a focused, full-screen, distraction-free
+  experience — closer to a conversational survey tool than a page inside a
+  larger app shell.
+- **Manager/admin experience** — closer to a conventional lightweight
+  dashboard: a list/table of their team, or of role configuration,
+  sortable by things like time since last check-in, so a manager can
+  notice who might be due without the system forcing a cycle on anyone.
+- Global navigation stays minimal across the whole app (a slim top bar,
+  not a dense persistent sidebar) — this product doesn't have the "many
+  concurrent things to juggle" problem that heavier navigation exists to
+  solve.
 
 ## User flows
 
