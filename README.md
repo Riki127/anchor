@@ -1,8 +1,8 @@
-# Employee Eval POC
+# Anchor
 
-A vertical-slice proof of concept for an AI-assisted employee assessment flow: pick a
-role, answer five generated questions, get a verdict with a rationale and a
-recommendation.
+A vertical-slice proof of concept for an AI-driven coaching conversation: pick a role,
+answer five generated questions, and get a verdict with a rationale and a concrete,
+encouraging next step — not a graded exam, a check-in aimed at growth.
 
 Main reason for this project is to learn Agentic AI Engineering
 
