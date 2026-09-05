@@ -9,6 +9,12 @@ was actually asked or answered, and evaluations that vary by whoever runs
 them. This app should replace that with a consistent, role-aware, AI-driven
 assessment process that produces a defensible, repeatable evaluation.
 
+Just as important as the evaluation itself: this tool exists to help people
+grow, not just to measure them. An employee walking away should feel
+encouraged and motivated by a concrete, personal next step — regardless of
+verdict — not like they were graded and sent away. That framing should carry
+through the whole experience, not just the recommendation text at the end.
+
 ## Users
 
 - **Employee** — takes the assessment; answers a dynamic, role-relevant
@@ -38,6 +44,13 @@ assessment process that produces a defensible, repeatable evaluation.
     existing roles and decides if one is an equivalent match. If the LLM
     isn't confident (ambiguous/borderline match), it falls back to asking
     the admin to confirm or reject the match instead of guessing.
+- Before starting an assessment, the employee sees a brief welcome step that
+  sets expectations and tone: what this is for (growth and recommendations,
+  not a pass/fail exam), roughly what to expect (a short conversation), and
+  that it leads to a concrete next step regardless of outcome. This is what
+  primes the supportive, coaching framing the rest of the experience is
+  built around — the assessment itself shouldn't be the employee's first
+  signal of what this tool is for.
 - Start an assessment session for an employee against their current role.
 - AI agent dynamically generates role-relevant questions for the session,
   adapting based on prior answers within that session.
@@ -67,12 +80,14 @@ assessment process that produces a defensible, repeatable evaluation.
 
 ## User flows
 
-1. **Take an assessment** — Employee starts a session for their role → AI
-   asks a question → employee answers → AI asks the next role-relevant
-   question (or hands-on exercise) using prior context → ... → the agent
-   decides it has enough information (or the 50-question/exercise cap is
-   reached) → session ends → evaluation agent scores the full session →
-   result and learning recommendation are stored and shown.
+1. **Take an assessment** — Employee opens the tool and sees a brief welcome
+   step (what this is, why it exists, what to expect) → starts a session
+   for their role → AI asks a question → employee answers → AI asks the
+   next role-relevant question (or hands-on exercise) using prior context
+   → ... → the agent decides it has enough information (or the
+   50-question/exercise cap is reached) → session ends → evaluation agent
+   scores the full session → result and learning recommendation are stored
+   and shown.
 2. **Review results** — Manager/admin opens a completed session → sees the
    verdict (below/meeting/exceeding), rationale, learning recommendation,
    and the underlying QA transcript.
@@ -80,6 +95,21 @@ assessment process that produces a defensible, repeatable evaluation.
    employee's job title) → agent checks for an existing, effectively-equal
    role and reuses its rubric, or infers a new career ladder and tier
    rubric for it → admin can review and force regeneration if needed.
+
+## Future direction
+
+Not yet designed or scheduled — noted here so it shapes decisions along the
+way (e.g. not building anything that would make this harder later), not as
+a commitment to build it next.
+
+- **Role-fit assessment.** Today's assessment always evaluates an employee
+  against the role they say they currently hold. At some point, this should
+  extend to a different question: given what an employee has demonstrated,
+  which role might actually be the best fit for them — not necessarily the
+  one they're in today. This is a career-pathing / internal-mobility
+  capability, distinct from "how are you doing in your current role," and
+  would likely mean comparing an employee's demonstrated skills against
+  multiple role rubrics rather than just one.
 
 ## Out of scope
 
