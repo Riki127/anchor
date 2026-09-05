@@ -1,9 +1,9 @@
 ---
 name: pr-workflow
-description: This project's conventions for finishing work and opening a pull request in employee-eval. Use this whenever wrapping up a feature, getting ready to open a PR, or the user says things like "let's do a PR", "let's open a PR", "ready to merge this", "let's wrap this up", "push this up", or similar - even if they don't spell out every convention, since the whole point of this skill is to apply them without being asked each time. Also consult it at the START of new work that's clearly a separate feature/deliverable from whatever is already merged or already has an open PR, since it governs which branch that work should start on.
+description: This project's conventions for finishing work and opening a pull request in Anchor. Use this whenever wrapping up a feature, getting ready to open a PR, or the user says things like "let's do a PR", "let's open a PR", "ready to merge this", "let's wrap this up", "push this up", or similar - even if they don't spell out every convention, since the whole point of this skill is to apply them without being asked each time. Also consult it at the START of new work that's clearly a separate feature/deliverable from whatever is already merged or already has an open PR, since it governs which branch that work should start on.
 ---
 
-# PR Workflow (employee-eval)
+# PR Workflow (Anchor)
 
 Two things this project does differently from the generic default, on top of
 whatever `finishing-a-development-branch` already handles (test verification,

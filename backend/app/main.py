@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db import create_db_and_tables
 from app.routers import employee, sessions
 
-app = FastAPI(title="Employee Eval POC")
+app = FastAPI(title="Anchor")
 
 app.add_middleware(
     CORSMiddleware,
