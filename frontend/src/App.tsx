@@ -1,14 +1,14 @@
 import { useState } from "react";
 
 import { startSession, submitAnswer } from "./api";
-import { QuestionScreen } from "./screens/QuestionScreen";
+import { QuestionScreen, type QAEntry } from "./screens/QuestionScreen";
 import { ResultsScreen } from "./screens/ResultsScreen";
 import { StartScreen } from "./screens/StartScreen";
 import type { Verdict } from "./types";
 
 type Screen =
   | { kind: "start" }
-  | { kind: "question"; sessionId: number; question: string }
+  | { kind: "question"; sessionId: number; history: QAEntry[]; question: string }
   | { kind: "results"; verdict: Verdict; rationale: string; recommendation: string };
 
 export default function App() {
@@ -21,7 +21,7 @@ export default function App() {
     setError(null);
     try {
       const res = await startSession(roleTitle);
-      setScreen({ kind: "question", sessionId: res.session_id, question: res.question });
+      setScreen({ kind: "question", sessionId: res.session_id, history: [], question: res.question });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -35,10 +35,11 @@ export default function App() {
     setError(null);
     try {
       const res = await submitAnswer(screen.sessionId, answer);
+      const updatedHistory = [...screen.history, { question: screen.question, answer }];
       if (res.status === "completed" && res.verdict && res.rationale && res.recommendation) {
         setScreen({ kind: "results", verdict: res.verdict, rationale: res.rationale, recommendation: res.recommendation });
       } else if (res.question) {
-        setScreen({ kind: "question", sessionId: screen.sessionId, question: res.question });
+        setScreen({ kind: "question", sessionId: screen.sessionId, history: updatedHistory, question: res.question });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -55,6 +56,7 @@ export default function App() {
       <QuestionScreen
         key={screen.question}
         question={screen.question}
+        history={screen.history}
         onSubmit={handleAnswer}
         isLoading={isLoading}
         error={error}
