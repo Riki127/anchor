@@ -1,0 +1,141 @@
+from hashlib import sha256
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
+from sqlmodel import Session, select
+
+from app.ai import AIProvider, get_ai_provider
+from app.ai.base import RoleLadderResolution
+from app.ai.usage import record_usage
+from app.db import get_session
+from app.models import AssessmentSession, Evaluation, Person, Role, SessionStatus
+from app.schemas import (
+    CompletedSessionSummary,
+    ResolvePersonRequest,
+    ResolveRoleRequest,
+    TierRubric,
+    PersonRead,
+    PersonStatus,
+    RoleRead,
+)
+
+router = APIRouter()
+
+
+def _resolution_lock(db: Session, key: str) -> None:
+    # Stable across processes; transaction locks also release on rollback.
+    lock_id = int.from_bytes(sha256(key.encode()).digest()[:8], signed=True)
+    db.execute(text('SELECT pg_advisory_xact_lock(:key)'), {'key': lock_id})
+
+
+@router.post('/people/resolve', response_model=PersonRead)
+def resolve_person(
+    body: ResolvePersonRequest, db: Session = Depends(get_session)
+) -> PersonRead:
+    name = ' '.join(body.display_name.split())
+    normalized_name = name.casefold()
+    _resolution_lock(db, f'anchor:person:{normalized_name}')
+    people = db.exec(select(Person).execution_options(populate_existing=True)).all()
+    person = next(
+        (person for person in people
+         if ' '.join(person.display_name.split()).casefold() == normalized_name),
+        None,
+    )
+    if person is None:
+        person = Person(display_name=name)
+        db.add(person)
+        db.flush()
+    response = PersonRead(id=person.id, display_name=person.display_name)
+    db.commit()
+    return response
+
+
+@router.get('/people/{person_id}/status', response_model=PersonStatus)
+def person_status(
+    person_id: int, db: Session = Depends(get_session)
+) -> PersonStatus:
+    person = db.get(Person, person_id)
+    if person is None:
+        raise HTTPException(404, 'Person not found')
+    sessions = db.exec(
+        select(AssessmentSession)
+        .where(
+            AssessmentSession.person_id == person_id,
+            AssessmentSession.status == SessionStatus.completed,
+        )
+        .order_by(AssessmentSession.completed_at.desc(), AssessmentSession.id.desc())
+    ).all()
+    history = []
+    for session in sessions:
+        role = db.get(Role, session.role_id)
+        evaluation = db.exec(
+            select(Evaluation).where(Evaluation.session_id == session.id)
+        ).first()
+        history.append(CompletedSessionSummary(
+            id=session.id,
+            role_title=session.role_title or role.title,
+            selected_tier_name=session.selected_tier_name,
+            completed_at=session.completed_at,
+            verdict=evaluation.verdict if evaluation else None,
+        ))
+    return PersonStatus(id=person.id, display_name=person.display_name, sessions=history)
+
+
+def _role_response(role: Role) -> RoleRead:
+    return RoleRead(
+        id=role.id,
+        title=role.title,
+        rubric_version=role.rubric_version,
+        ladder=TierRubric.model_validate(role.ladder),
+    )
+
+
+def _cached_exact_role(db: Session, title: str) -> Role | None:
+    # Every stored Role is created with a ladder already attached (see below),
+    # so a literal title match is always immediately usable.
+    roles = db.exec(select(Role).execution_options(populate_existing=True)).all()
+    return next(
+        (role for role in roles if role.title.strip().casefold() == title.casefold()),
+        None,
+    )
+
+
+@router.post('/roles/resolve', response_model=RoleRead)
+def resolve_role(
+    body: ResolveRoleRequest,
+    db: Session = Depends(get_session),
+    provider: AIProvider = Depends(get_ai_provider),
+) -> RoleRead:
+    # An already-resolved title needs no lock: nothing about it can be corrupted
+    # by a concurrent resolution of some other title, so check before waiting.
+    cached = _cached_exact_role(db, body.title)
+    if cached:
+        response = _role_response(cached)
+        db.commit()
+        return response
+    try:
+        # Provider-defined equivalence requires one lock covering all title aliases
+        # for the actual resolve/create work; cache hits above never wait on it.
+        _resolution_lock(db, 'anchor:role-resolution')
+        cached = _cached_exact_role(db, body.title)
+        if cached:
+            response = _role_response(cached)
+            db.commit()
+            return response
+        roles = list(db.exec(select(Role).execution_options(populate_existing=True)).all())
+        result = provider.resolve_role_ladder(body.title, roles)
+        output = RoleLadderResolution.model_validate(result.output.model_dump())
+        role = next((r for r in roles if r.id == output.matched_role_id), None)
+        if output.matched_role_id is not None and role is None:
+            raise ValueError('Unknown matched role')
+        if role is None:
+            role = Role(title=body.title, rubric_version=2, ladder=output.ladder.model_dump())
+        db.add(role)
+        db.flush()
+        record_usage(db, result, provider, 'resolve_role_ladder', role_id=role.id)
+        response = _role_response(role)
+        db.commit()
+        return response
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(502, 'AI provider failed to resolve role') from exc

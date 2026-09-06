@@ -1,19 +1,25 @@
-import type { Page } from "@playwright/test";
-
-/**
- * The Home screen shows a different entry button depending on whether the
- * employee already has a completed session in the (real, shared) dev
- * database - "Get started" for a first-time visit, "Start a new check-in"
- * for a returning one. Either leads to the same role-title Start screen.
- */
-export async function goToStartScreen(page: Page): Promise<void> {
-  await page.goto("/");
-  const getStarted = page.getByTestId("get-started-button");
-  const startNew = page.getByTestId("start-new-button");
-  await Promise.race([getStarted.waitFor({ state: "visible" }), startNew.waitFor({ state: "visible" })]);
-  if (await getStarted.isVisible()) {
-    await getStarted.click();
-  } else {
-    await startNew.click();
-  }
+import { expect, type Page } from '@playwright/test';
+export const api = process.env.E2E_API_BASE_URL ?? 'http://localhost:8000';
+export const detailed = 'I led a specific project, clarified requirements with stakeholders, implemented and tested the solution, measured the outcome, and improved team delivery through documented feedback.';
+export async function goToStartScreen(page: Page) {
+    await page.goto('/');
+    await page.getByLabel('Your name').fill(`Coachee ${Date.now()} ${Math.random()}`);
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByRole('button', { name: 'Start a new check-in' }).click();
+}
+export async function begin(page: Page) {
+    await goToStartScreen(page);
+    await page.getByLabel('Role to explore').fill('Software Engineer');
+    await page.getByRole('button', { name: 'Explore role' }).click();
+    await page.getByRole('radio').first().check();
+    await page.getByRole('checkbox', { name: /reviewed/ }).check();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByRole('button', { name: 'Start the conversation' }).click();
+}
+export async function answer(page: Page, count: number, text = detailed) {
+    for (let i = 1; i <= count; i++) {
+        await expect(page.getByText(`Question ${i}`, { exact: true })).toBeVisible();
+        await page.getByLabel('Your answer').fill(text);
+        await page.getByRole('button', { name: 'Continue' }).click();
+    }
 }

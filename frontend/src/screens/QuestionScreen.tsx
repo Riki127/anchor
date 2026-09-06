@@ -6,55 +6,46 @@ export interface QAEntry {
 }
 
 interface QuestionScreenProps {
-  question: string;
   history: QAEntry[];
   onSubmit: (answer: string) => void;
   isLoading: boolean;
   error: string | null;
 }
 
-export function QuestionScreen({ question, history, onSubmit, isLoading, error }: QuestionScreenProps) {
+export function QuestionScreen({ history, onSubmit, isLoading, error }: QuestionScreenProps) {
   const [answer, setAnswer] = useState("");
 
   return (
-    <div className="min-h-screen flex justify-center px-6 py-16">
-      <div className="w-full max-w-lg">
-        {history.length > 0 && (
-          <div className="mb-10 space-y-6 border-l-2 border-ink/10 pl-5">
-            {history.map((entry, index) => (
-              <div key={index}>
-                <p className="font-serif text-base text-ink-muted leading-snug mb-1">{entry.question}</p>
-                <p className="font-sans text-sm text-ink-muted/80">{entry.answer}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <p data-testid="question-text" className="font-serif text-2xl leading-snug text-ink mb-6">
-          {question}
-        </p>
+    <>
+      <p className="mb-4">Question {history.length + 1}</p>
+      <form onSubmit={(event) => {
+        event.preventDefault();
+        if (answer.trim()) onSubmit(answer.trim());
+      }}>
+        <label htmlFor="answer">Your answer</label>
         <textarea
-          data-testid="answer-input"
-          className="w-full bg-paper-light border border-ink/15 rounded-md px-4 py-3 font-sans text-ink placeholder:text-ink-muted/70 mb-5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal"
-          rows={4}
+          id="answer"
+          required
+          rows={5}
           value={answer}
           disabled={isLoading}
-          onChange={(e) => setAnswer(e.target.value)}
+          onChange={(event) => setAnswer(event.target.value)}
+          aria-invalid={!!error}
+          aria-describedby="form-error"
         />
-        {error && (
-          <p className="font-sans text-sm text-rose mb-5" role="alert">
-            {error}
-          </p>
-        )}
-        <button
-          data-testid="submit-answer-button"
-          className="font-sans font-medium text-paper-light bg-teal px-5 py-3 rounded-md disabled:opacity-50 hover:bg-teal/90 transition-colors"
-          disabled={isLoading || answer.trim().length === 0}
-          onClick={() => onSubmit(answer.trim())}
-        >
-          {isLoading ? "Sending..." : "Continue"}
-        </button>
-      </div>
-    </div>
+        <button disabled={isLoading || !answer.trim()}>Continue</button>
+      </form>
+      {history.length > 0 && (
+        <details className="mt-8">
+          <summary>Your earlier answers</summary>
+          {history.map((entry, index) => (
+            <div key={index} className="mt-4">
+              <h2 className="font-serif text-lg">{entry.question}</h2>
+              <p className="mt-2 whitespace-pre-wrap">{entry.answer}</p>
+            </div>
+          ))}
+        </details>
+      )}
+    </>
   );
 }

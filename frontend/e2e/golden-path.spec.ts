@@ -1,23 +1,17 @@
-import { expect, test } from "@playwright/test";
-
-import { goToStartScreen } from "./helpers";
-
-test("employee completes assessment and sees a verdict", async ({ page }) => {
-  await goToStartScreen(page);
-  await page.getByTestId("role-title-input").fill("Software Engineer");
-  await page.getByTestId("start-button").click();
-
-  for (let i = 0; i < 5; i++) {
-    await expect(page.getByTestId("question-text")).toBeVisible();
-    await page
-      .getByTestId("answer-input")
-      .fill(
-        "This is a detailed example answer describing a specific situation, the actions I took, and the outcome I achieved."
-      );
-    await page.getByTestId("submit-answer-button").click();
-  }
-
-  await expect(page.getByTestId("verdict")).toBeVisible();
-  await expect(page.getByTestId("rationale")).toBeVisible();
-  await expect(page.getByTestId("recommendation")).toBeVisible();
+import { expect, test } from '@playwright/test';
+import { begin, answer } from './helpers';
+test('three detailed answers complete and persist profile history', async ({ page }) => {
+    await begin(page);
+    await answer(page, 3);
+    await expect(page.getByTestId('verdict')).toBeVisible();
+    await page.getByRole('button', { name: 'Back to home' }).click();
+    await expect(page.getByRole('button', { name: /View result/ })).toHaveCount(1);
+    await page.reload();
+    await page.getByRole('button', { name: /View result/ }).click();
+    await expect(page.getByTestId('recommendation')).toBeVisible();
+});
+test('short answers reach ten questions', async ({ page }) => {
+    await begin(page);
+    await answer(page, 10, 'I helped.');
+    await expect(page.getByTestId('verdict')).toBeVisible();
 });

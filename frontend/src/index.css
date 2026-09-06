@@ -6,3 +6,19 @@ body {
   background-color: #EDE7DD;
   color: #2B2A28;
 }
+
+@layer base {
+  input:not([type="radio"]), textarea { @apply block w-full bg-paper-light border border-ink-muted rounded-md px-4 py-3 mt-2 mb-5; }
+  input[type="radio"] { @apply w-6 h-6 accent-teal; }
+  button { @apply bg-teal text-paper-light font-medium px-5 py-3 rounded-md mr-3 mt-3; }
+  button.secondary { @apply bg-transparent text-teal border border-teal; }
+  button:disabled { @apply cursor-wait; }
+  :focus-visible { outline: 3px solid #2F5D57; outline-offset: 4px; }
+  h1:focus { outline: none; }
+  summary { @apply cursor-pointer py-3; }
+}
+.skip-link { position: absolute; left: 1rem; top: -5rem; padding: .75rem; background: #F7F3EC; color: #2F5D57; }
+.skip-link:focus { top: 1rem; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
