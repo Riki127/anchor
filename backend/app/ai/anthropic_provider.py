@@ -3,6 +3,8 @@ from pydantic import BaseModel
 import anthropic
 
 from app.config import settings
+from app.ai.adaptive import AdaptiveProvider, OutputT
+from app.ai.base import ProviderResult, Usage
 from app.models import QAPair, Role
 from app.schemas import EvaluationOutput, QuestionOutput, RoleMatchResult, RoleRubric
 
@@ -13,7 +15,27 @@ class _RoleMatchDecision(BaseModel):
     matched_role_id: int | None
 
 
-class AnthropicAIProvider:
+class AnthropicAIProvider(AdaptiveProvider):
+    provider_name = "anthropic"
+
+    def _parse_adaptive(
+        self, prompt: str, output_format: type[OutputT]
+    ) -> ProviderResult[OutputT]:
+        response = self._client.messages.parse(
+            model=_MODEL, max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}], output_format=output_format,
+        )
+        if response.parsed_output is None:
+            raise RuntimeError("Anthropic returned no structured output")
+        output = output_format.model_validate(response.parsed_output)
+        usage = response.usage
+        return ProviderResult(output, Usage(
+            input_tokens=(usage.input_tokens + (usage.cache_read_input_tokens or 0)
+                          + (usage.cache_creation_input_tokens or 0)),
+            output_tokens=usage.output_tokens,
+            model=response.model,
+        ))
+
     def __init__(self, client: anthropic.Anthropic | None = None) -> None:
         if client is not None:
             self._client = client
