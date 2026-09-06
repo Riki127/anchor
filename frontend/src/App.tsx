@@ -44,8 +44,9 @@ function rememberedPerson(): Person | null {
 }
 
 export default function App() {
-  const [person, setPerson] = useState<Person | null>(rememberedPerson);
-  const [screen, setScreen] = useState<Screen>(() => rememberedPerson() ? "home" : "profile");
+  const [initialPerson] = useState<Person | null>(rememberedPerson);
+  const [person, setPerson] = useState<Person | null>(initialPerson);
+  const [screen, setScreen] = useState<Screen>(() => initialPerson ? "home" : "profile");
   const [status, setStatus] = useState<PersonStatus | null>(null);
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -53,7 +54,7 @@ export default function App() {
   const [tier, setTier] = useState("");
   const [session, setSession] = useState<ActiveSession | null>(null);
   const [result, setResult] = useState<Result | null>(null);
-  const [busy, setBusy] = useState(() => rememberedPerson() !== null);
+  const [busy, setBusy] = useState(initialPerson !== null);
   const [error, setError] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
   const selected = role?.ladder.tiers.find((candidate) => candidate.id === tier);
@@ -71,9 +72,11 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!person) return;
+    // Only restore the profile present at mount. Entry and home navigation load
+    // their own history inside run(), which owns those operations' busy state.
+    if (!initialPerson) return;
     let active = true;
-    getPersonStatus(person.id)
+    getPersonStatus(initialPerson.id)
       .then((loaded) => { if (active) setStatus(loaded); })
       .catch((failure: unknown) => {
         if (active) {
@@ -82,7 +85,7 @@ export default function App() {
       })
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
-  }, [person]);
+  }, [initialPerson]);
 
   useEffect(() => {
     heading.current?.focus();

@@ -26,9 +26,11 @@ export function HomeScreen({ status, isLoading, onStartNew, onSwitchProfile, onR
             <ul className="space-y-4">
               {status.sessions.map((session) => (
                 <li key={session.id} className="border-t border-ink-muted pt-4">
-                  <p>{session.role_title} · {session.selected_tier_name}</p>
+                  <p>{session.role_title} · {session.selected_tier_name ?? "Level not recorded"}</p>
                   <p className="text-sm">
-                    {new Date(session.completed_at).toLocaleDateString()} · {session.verdict} expectations
+                    {session.completed_at ? new Date(session.completed_at).toLocaleDateString() : "Date not recorded"}
+                    {" · "}
+                    {session.verdict ? `${session.verdict} expectations` : "Result not recorded"}
                   </p>
                   <button className="secondary" disabled={isLoading} onClick={() => onViewResult(session.id)}>
                     View result · {session.role_title}

@@ -9,9 +9,9 @@ export interface PersonStatus extends Person {
   sessions: {
     id: number;
     role_title: string;
-    selected_tier_name: string;
-    completed_at: string;
-    verdict: Verdict;
+    selected_tier_name: string | null;
+    completed_at: string | null;
+    verdict: Verdict | null;
   }[];
 }
 
