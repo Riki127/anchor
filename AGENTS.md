@@ -25,6 +25,19 @@ This repository contains **Anchor**, an AI-driven coaching tool that helps an em
 - **State Management:** Keep assessment session state synchronized with the backend.
 - **Accessibility & Responsiveness:** Follow WCAG accessibility standards and ensure mobile-friendly layouts.
 
+## Accessibility baseline
+
+Before creating or modifying web UI, read and apply
+[`ACCESSIBILITY.md`](ACCESSIBILITY.md). It is the project's required baseline
+for WCAG 2.2 AA: semantic controls, labels and errors, keyboard navigation,
+visible focus, headings and landmarks, contrast, motion, and dynamic updates.
+Automated guidance complements—not replaces—keyboard and assistive-technology
+testing.
+
+`ACCESSIBILITY.md` is sourced from
+[`Community-Access/accessibility-agents`](https://github.com/Community-Access/accessibility-agents)
+at commit `161c60c7493ad657f371ad8f91253d33c3b12044`, under the MIT License.
+
 ## Backend & AI Guidelines
 
 - **Structured LLM Output:** Always enforce strict schema output (Pydantic) for LLM responses (questions, evaluations, feedback).
