@@ -10,7 +10,10 @@ async function request<T>(path: string, data?: unknown): Promise<T> {
   });
   if (!response.ok) {
     if (response.status === 502) {
-      throw new Error("The coach could not respond. Please retry with the same answer.");
+      const retryGuidance = path.includes("/answer")
+        ? "Please retry with the same saved answer."
+        : "Please try again.";
+      throw new Error(`The coach could not respond. ${retryGuidance}`);
     }
     if (response.status === 409) {
       throw new Error(
