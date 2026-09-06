@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
+from threading import Barrier, Event
 from time import sleep
 
 from fastapi.testclient import TestClient
@@ -270,6 +270,40 @@ def test_concurrent_role_resolves_share_committed_ladder(db_session, legacy, ali
         assert started.status_code == 200
 
 
+def test_cached_role_resolves_without_waiting_on_unrelated_generation(db_session):
+    engine = db_session.get_bind()
+    db_session.rollback()
+
+    def independent_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = independent_session
+    app.dependency_overrides[get_ai_provider] = MockAIProvider
+    cached = TestClient(app).post('/roles/resolve', json={'title': 'Widget Assembler'})
+    assert cached.status_code == 200
+
+    entered = Event()
+    release = Event()
+
+    class SlowGeneration(MockAIProvider):
+        def resolve_role_ladder(self, title, existing_roles):
+            entered.set()
+            assert release.wait(timeout=5)
+            return super().resolve_role_ladder(title, existing_roles)
+
+    app.dependency_overrides[get_ai_provider] = SlowGeneration
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        slow = pool.submit(TestClient(app).post, '/roles/resolve', json={'title': 'New Role'})
+        assert entered.wait(timeout=5)
+        # A cache hit for an unrelated, already-populated title must not queue
+        # behind the resolution lock still held by the in-flight generation above.
+        fast = TestClient(app).post('/roles/resolve', json={'title': 'Widget Assembler'})
+        assert fast.status_code == 200
+        release.set()
+        assert slow.result(timeout=5).status_code == 200
+
+
 @pytest.mark.parametrize('invalid', ['unknown_match', 'empty_tiers', 'duplicate_ids', 'empty_expectations'])
 def test_invalid_ladder_rejected_atomically(db_session, invalid):
     class BadLadder(MockAIProvider):
@@ -289,6 +323,33 @@ def test_invalid_ladder_rejected_atomically(db_session, invalid):
     assert TestClient(app).post('/roles/resolve', json={'title': 'Engineer'}).status_code == 502
     assert not db_session.exec(select(Role)).all()
     assert not db_session.exec(select(AIUsage)).all()
+
+
+def test_exact_title_match_wins_over_provider_semantic_mismatch(db_session):
+    other = Role(title='Backend Engineer', rubric={'preserved': True})
+    legacy = Role(title='Software Engineer', rubric={'preserved': True})
+    db_session.add(other)
+    db_session.add(legacy)
+    db_session.commit()
+    db_session.refresh(other)
+    db_session.refresh(legacy)
+
+    class DisagreeingMatch(MockAIProvider):
+        def resolve_role_ladder(self, title, existing_roles):
+            result = super().resolve_role_ladder(title, existing_roles)
+            result.output.matched_role_id = other.id
+            return result
+
+    app.dependency_overrides[get_session] = lambda: db_session
+    app.dependency_overrides[get_ai_provider] = DisagreeingMatch
+    response = TestClient(app).post('/roles/resolve', json={'title': 'Software Engineer'})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body['id'] == legacy.id
+    assert body['ladder']['tiers']
+    db_session.refresh(other)
+    assert other.ladder is None
 
 
 def test_start_failure_has_no_partial_session(db_session):

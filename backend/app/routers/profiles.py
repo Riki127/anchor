@@ -90,32 +90,52 @@ def _role_response(role: Role) -> RoleRead:
     )
 
 
+def _cached_exact_role(db: Session, title: str) -> Role | None:
+    roles = db.exec(select(Role).execution_options(populate_existing=True)).all()
+    return next(
+        (role for role in roles
+         if role.title.strip().casefold() == title.casefold() and role.ladder),
+        None,
+    )
+
+
 @router.post('/roles/resolve', response_model=RoleRead)
 def resolve_role(
     body: ResolveRoleRequest,
     db: Session = Depends(get_session),
     provider: AIProvider = Depends(get_ai_provider),
 ) -> RoleRead:
+    # An already-cached title needs no lock: nothing about it can be corrupted
+    # by a concurrent resolution of some other title, so check before waiting.
+    cached = _cached_exact_role(db, body.title)
+    if cached:
+        response = _role_response(cached)
+        db.commit()
+        return response
     try:
-        # Provider-defined equivalence requires one lock covering all title aliases.
+        # Provider-defined equivalence requires one lock covering all title aliases
+        # for the actual resolve/create work; cache hits above never wait on it.
         _resolution_lock(db, 'anchor:role-resolution')
+        cached = _cached_exact_role(db, body.title)
+        if cached:
+            response = _role_response(cached)
+            db.commit()
+            return response
         roles = list(db.exec(select(Role).execution_options(populate_existing=True)).all())
         exact = next(
             (role for role in roles if role.title.strip().casefold() == body.title.casefold()),
             None,
         )
-        if exact and exact.ladder:
-            response = _role_response(exact)
-            db.commit()
-            return response
         result = provider.resolve_role_ladder(body.title, roles)
         output = RoleLadderResolution.model_validate(result.output.model_dump())
         matched = next((r for r in roles if r.id == output.matched_role_id), None)
         if output.matched_role_id is not None and matched is None:
             raise ValueError('Unknown matched role')
+        # An exact title match always wins over the provider's separate semantic
+        # match: it's the deterministic answer to what was actually asked, and
+        # preferring it avoids failing legacy roles the provider merely declines
+        # to consider equivalent to themselves.
         role = exact or matched
-        if exact and matched and exact.id != matched.id:
-            raise ValueError('Mismatched role')
         if role is None:
             tiers = output.ladder.tiers
             role = Role(

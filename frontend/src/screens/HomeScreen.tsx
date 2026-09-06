@@ -16,7 +16,7 @@ export function HomeScreen({ status, isLoading, onStartNew, onSwitchProfile, onR
         Explore where you stand and what to focus on next, in your current role
         or one you are considering.
       </p>
-      <button disabled={isLoading || !status} onClick={onStartNew}>Start a new check-in</button>
+      <button disabled={isLoading} onClick={onStartNew}>Start a new check-in</button>
       {!status && !isLoading && <button onClick={onRetry}>Retry loading profile</button>}
       <button className="secondary" disabled={isLoading} onClick={onSwitchProfile}>Switch profile</button>
       {status && (
