@@ -9,7 +9,6 @@ from app.config import settings
 engine = create_engine(settings.database_url, echo=False)
 
 _ADAPTIVE_COLUMN_MIGRATIONS = (
-    'ALTER TABLE "session" ALTER COLUMN "employee_id" DROP NOT NULL',
     'ALTER TABLE "role" ADD COLUMN IF NOT EXISTS "rubric_version" INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE "role" ADD COLUMN IF NOT EXISTS "ladder" JSON',
     'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS "person_id" INTEGER REFERENCES "person" ("id")',
@@ -23,6 +22,11 @@ _ADAPTIVE_COLUMN_MIGRATIONS = (
     "ALTER TABLE \"session\" ADD COLUMN IF NOT EXISTS \"next_expectations\" JSON NOT NULL DEFAULT '[]'::json",
     'ALTER TABLE "qapair" ADD COLUMN IF NOT EXISTS "item_type" VARCHAR(21) NOT NULL DEFAULT \'conversation_question\'',
     'ALTER TABLE "qapair" ADD COLUMN IF NOT EXISTS "turn_decision" JSON',
+    # Retired with the title-only session flow: the separate employee identity
+    # and the flat per-role rubric that preceded generated ladders.
+    'ALTER TABLE "session" DROP COLUMN IF EXISTS "employee_id"',
+    'ALTER TABLE "role" DROP COLUMN IF EXISTS "rubric"',
+    'DROP TABLE IF EXISTS "employee"',
 )
 
 

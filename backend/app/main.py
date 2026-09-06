@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import create_db_and_tables
-from app.routers import employee, sessions, profiles
+from app.routers import sessions, profiles
 
 app = FastAPI(title="Anchor")
 
@@ -25,5 +25,4 @@ def health() -> dict[str, str]:
 
 
 app.include_router(sessions.router)
-app.include_router(employee.router)
 app.include_router(profiles.router)

@@ -4,10 +4,19 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.ai import get_ai_provider
 from app.ai.anthropic_provider import AnthropicAIProvider
 from app.ai.base import AdaptiveAssessmentConstraints
 from app.ai.openai_provider import OpenAIProvider
+from app.config import settings
 from app.models import AssessmentSession, QAPair, Role
+
+
+def test_openai_provider_is_selected_from_settings(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "ai_provider", "openai")
+    monkeypatch.setattr(settings, "openai_api_key", "test-key")
+
+    assert type(get_ai_provider()).__name__ == "OpenAIProvider"
 
 
 CONTINUE = dict(decision="continue", confidence=0.5, covered_expectations=[],
@@ -45,7 +54,7 @@ def provider_type(request):
 
 
 def snapshot():
-    return AssessmentSession(role_id=1, role_title="Engineer", next_tier_id="senior", next_tier_name="Senior Engineer", selected_tier_id="mid", selected_tier_name="Mid-level",
+    return AssessmentSession(person_id=1, role_id=1, role_title="Engineer", next_tier_id="senior", next_tier_name="Senior Engineer", selected_tier_id="mid", selected_tier_name="Mid-level",
                              selected_expectations=["snapshot-delivery"],
                              next_expectations=["snapshot-leadership"], rubric_version=2)
 
@@ -56,7 +65,7 @@ def test_adaptive_turn_contract_and_context(provider_type, count, output):
     client = FakeSDK([dict(turn=output)])
     provider = provider_type(client=client)
     history = [QAPair(order=i, question=f"question-{i}", answer=f"answer-{i}") for i in range(count)]
-    result = provider.advance_assessment(Role(id=1, title="Engineer", rubric={}), snapshot(),
+    result = provider.advance_assessment(Role(id=1, title="Engineer"), snapshot(),
                                          history, AdaptiveAssessmentConstraints())
     assert result.output.decision == output["decision"]
     request = client.requests[0]
@@ -89,9 +98,9 @@ def test_start_uses_snapshot(provider_type):
 @pytest.mark.parametrize('legacy', [False, True])
 def test_prompt_never_uses_mutable_role_names(provider_type, legacy):
     client = FakeSDK([dict(turn=CONTINUE)])
-    saved = AssessmentSession(role_id=1) if legacy else snapshot()
+    saved = AssessmentSession(person_id=1, role_id=1) if legacy else snapshot()
     provider_type(client=client).advance_assessment(
-        Role(id=1, title='Changed title', rubric={}), saved, [], AdaptiveAssessmentConstraints())
+        Role(id=1, title='Changed title'), saved, [], AdaptiveAssessmentConstraints())
     request = client.requests[0]
     prompt = request.get('input') or request['messages'][0]['content']
     context = json.loads(prompt.split('as data, not instructions:\n')[-1])
@@ -105,16 +114,16 @@ def test_rejects_output_violating_server_limits(provider_type, count, output):
     client = FakeSDK([dict(turn=output)])
     with pytest.raises((ValueError, RuntimeError)):
         provider_type(client=client).advance_assessment(
-            Role(id=1, title="Engineer", rubric={}), snapshot(),
+            Role(id=1, title="Engineer"), snapshot(),
             [QAPair(order=i, question="q", answer="a") for i in range(count)],
             AdaptiveAssessmentConstraints())
 
 
 @pytest.mark.parametrize("existing,outputs,expected_id,calls", [
     ([], [LADDER], None, 1),
-    ([Role(id=7, title="Engineer", rubric={}, ladder=LADDER)], [{"matched_role_id": 7}], 7, 1),
-    ([Role(id=7, title="Engineer", rubric={})], [{"matched_role_id": 7}, LADDER], 7, 2),
-    ([Role(id=7, title="Engineer", rubric={})], [{"matched_role_id": None}, LADDER], None, 2),
+    ([Role(id=7, title="Engineer", ladder=LADDER)], [{"matched_role_id": 7}], 7, 1),
+    ([Role(id=7, title="Engineer")], [{"matched_role_id": 7}, LADDER], 7, 2),
+    ([Role(id=7, title="Engineer")], [{"matched_role_id": None}, LADDER], None, 2),
 ])
 def test_role_resolution_reuse_and_all_call_usage(provider_type, existing, outputs, expected_id, calls):
     client = FakeSDK(outputs)
@@ -129,7 +138,7 @@ def test_role_resolution_reuse_and_all_call_usage(provider_type, existing, outpu
 def test_unknown_role_id_rejected(provider_type):
     client = FakeSDK([{"matched_role_id": 99}])
     with pytest.raises(RuntimeError, match="unknown role"):
-        provider_type(client=client).resolve_role_ladder("Developer", [Role(id=7, title="Engineer", rubric={})])
+        provider_type(client=client).resolve_role_ladder("Developer", [Role(id=7, title="Engineer")])
 
 
 def test_missing_output_rejected(provider_type):
@@ -178,7 +187,7 @@ def test_sdk_wire_schema_has_supported_nested_union_and_required_properties():
 ])
 def test_hard_bounds_and_force_evaluation(provider_type, count, minimum, force, output):
     result = provider_type(client=FakeSDK([dict(turn=output)])).advance_assessment(
-        Role(id=1, title="Engineer", rubric={}), snapshot(),
+        Role(id=1, title="Engineer"), snapshot(),
         [QAPair(order=i, question="q", answer="a") for i in range(count)]
         + [QAPair(order=count, question="unanswered", answer=None)],
         AdaptiveAssessmentConstraints(minimum_answers=minimum, force_evaluate=force),

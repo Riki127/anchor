@@ -91,10 +91,11 @@ def _role_response(role: Role) -> RoleRead:
 
 
 def _cached_exact_role(db: Session, title: str) -> Role | None:
+    # Every stored Role is created with a ladder already attached (see below),
+    # so a literal title match is always immediately usable.
     roles = db.exec(select(Role).execution_options(populate_existing=True)).all()
     return next(
-        (role for role in roles
-         if role.title.strip().casefold() == title.casefold() and role.ladder),
+        (role for role in roles if role.title.strip().casefold() == title.casefold()),
         None,
     )
 
@@ -105,7 +106,7 @@ def resolve_role(
     db: Session = Depends(get_session),
     provider: AIProvider = Depends(get_ai_provider),
 ) -> RoleRead:
-    # An already-cached title needs no lock: nothing about it can be corrupted
+    # An already-resolved title needs no lock: nothing about it can be corrupted
     # by a concurrent resolution of some other title, so check before waiting.
     cached = _cached_exact_role(db, body.title)
     if cached:
@@ -122,35 +123,13 @@ def resolve_role(
             db.commit()
             return response
         roles = list(db.exec(select(Role).execution_options(populate_existing=True)).all())
-        exact = next(
-            (role for role in roles if role.title.strip().casefold() == body.title.casefold()),
-            None,
-        )
         result = provider.resolve_role_ladder(body.title, roles)
         output = RoleLadderResolution.model_validate(result.output.model_dump())
-        matched = next((r for r in roles if r.id == output.matched_role_id), None)
-        if output.matched_role_id is not None and matched is None:
+        role = next((r for r in roles if r.id == output.matched_role_id), None)
+        if output.matched_role_id is not None and role is None:
             raise ValueError('Unknown matched role')
-        # An exact title match always wins over the provider's separate semantic
-        # match: it's the deterministic answer to what was actually asked, and
-        # preferring it avoids failing legacy roles the provider merely declines
-        # to consider equivalent to themselves.
-        role = exact or matched
         if role is None:
-            tiers = output.ladder.tiers
-            role = Role(
-                title=body.title,
-                rubric={
-                    'current_tier_expectations': tiers[0].expectations,
-                    'next_tier_expectations': tiers[1].expectations if len(tiers) > 1 else [],
-                    'career_ladder_summary': output.ladder.career_ladder_summary,
-                },
-                rubric_version=2,
-                ladder=output.ladder.model_dump(),
-            )
-        elif not role.ladder:
-            role.ladder = output.ladder.model_dump()
-            role.rubric_version = max(2, role.rubric_version + 1)
+            role = Role(title=body.title, rubric_version=2, ladder=output.ladder.model_dump())
         db.add(role)
         db.flush()
         record_usage(db, result, provider, 'resolve_role_ladder', role_id=role.id)

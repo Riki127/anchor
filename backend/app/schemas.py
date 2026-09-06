@@ -64,27 +64,6 @@ AdaptiveTurnOutput = Annotated[
 ]
 
 
-class RoleRubric(BaseModel):
-    current_tier_expectations: list[str]
-    next_tier_expectations: list[str]
-    career_ladder_summary: str
-
-
-class RoleMatchResult(BaseModel):
-    matched_role_id: int | None
-    rubric: RoleRubric
-
-
-class QuestionOutput(BaseModel):
-    question: str
-
-
-class EvaluationOutput(BaseModel):
-    verdict: Verdict
-    rationale: str
-    recommendation: str
-
-
 class ResolvePersonRequest(StrictRequestModel):
     display_name: NonEmptyString
 
@@ -118,24 +97,13 @@ class RoleRead(BaseModel):
 
 
 class StartSessionRequest(StrictRequestModel):
-    person_id: int | None = Field(default=None, gt=0)
-    role_id: int | None = Field(default=None, gt=0)
-    tier_id: NonEmptyString | None = None
-    role_title: NonEmptyString | None = None
-
-    @model_validator(mode="after")
-    def require_legacy_title_or_adaptive_ids(self) -> "StartSessionRequest":
-        has_adaptive_ids = all(
-            value is not None for value in (self.person_id, self.role_id, self.tier_id)
-        )
-        any_ids = any(value is not None for value in (self.person_id, self.role_id, self.tier_id))
-        if (self.role_title is not None and any_ids) or (self.role_title is None and not has_adaptive_ids):
-            raise ValueError("provide role_title or person_id, role_id, and tier_id")
-        return self
+    person_id: int = Field(gt=0)
+    role_id: int = Field(gt=0)
+    tier_id: NonEmptyString
 
 
 class SessionStartResponse(BaseModel):
-    item_id: int | None = None
+    item_id: int
     session_id: int
     role_id: int
     question: str
@@ -173,9 +141,3 @@ class SessionRead(BaseModel):
     verdict: str | None = None
     rationale: str | None = None
     recommendation: str | None = None
-
-
-class EmployeeStatus(BaseModel):
-    has_completed_session: bool
-    last_completed_at: datetime | None = None
-    last_session_id: int | None = None

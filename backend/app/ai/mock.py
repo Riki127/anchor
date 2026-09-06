@@ -7,16 +7,7 @@ from app.ai.base import (
     Usage,
 )
 from app.models import AssessmentSession, QAPair, Role, Verdict
-from app.schemas import (
-    ContinueTurnOutput,
-    EvaluateTurnOutput,
-    EvaluationOutput,
-    QuestionOutput,
-    RoleMatchResult,
-    RoleRubric,
-    RoleTier,
-    TierRubric,
-)
+from app.schemas import ContinueTurnOutput, EvaluateTurnOutput, RoleTier, TierRubric
 
 _MODEL = "deterministic-v1"
 
@@ -35,29 +26,6 @@ _SENIORITY_WORDS = frozenset(
     }
 )
 _ROLE_WORD_ALIASES = {"developer": "engineer"}
-
-_GENERIC_RUBRIC = RoleRubric(
-    current_tier_expectations=[
-        "Delivers assigned tasks independently with minimal guidance",
-        "Communicates progress and blockers clearly to the team",
-        "Applies core technical/domain skills correctly in day-to-day work",
-    ],
-    next_tier_expectations=[
-        "Leads small initiatives end-to-end with limited oversight",
-        "Mentors less experienced teammates",
-        "Anticipates risks and proposes solutions proactively",
-    ],
-    career_ladder_summary="Generic individual-contributor progression from current tier to the next tier.",
-)
-
-_QUESTION_POOL = [
-    "Describe a recent piece of work you're proud of and what made it successful.",
-    "Tell me about a time you had to solve a problem with incomplete information.",
-    "How do you prioritize your work when you have multiple competing deadlines?",
-    "Describe a time you received difficult feedback. How did you respond?",
-    "What's a skill you've been actively developing recently, and why?",
-    "Tell me about a time you helped a teammate who was stuck.",
-]
 
 
 class MockAIProvider:
@@ -144,28 +112,6 @@ class MockAIProvider:
         return ProviderResult(
             output=output,
             usage=Usage(input_tokens=48 + len(answered) * 12, output_tokens=44, model=_MODEL),
-        )
-
-    # Compatibility methods remain until the session API migrates to the unified contract.
-    def match_or_create_role(self, title: str, existing_roles: list[Role]) -> RoleMatchResult:
-        matched_role = _find_matching_role(title, existing_roles)
-        if matched_role is not None:
-            return RoleMatchResult(
-                matched_role_id=matched_role.id, rubric=RoleRubric(**matched_role.rubric)
-            )
-        return RoleMatchResult(matched_role_id=None, rubric=_GENERIC_RUBRIC)
-
-    def generate_next_question(self, role: Role, qa_history: list[QAPair]) -> QuestionOutput:
-        index = len(qa_history)
-        return QuestionOutput(question=_QUESTION_POOL[index % len(_QUESTION_POOL)])
-
-    def evaluate_session(self, role: Role, qa_history: list[QAPair]) -> EvaluationOutput:
-        average_length = sum(len(qa.answer or "") for qa in qa_history) / len(qa_history)
-        verdict, rationale, recommendation = _evaluation_for(average_length, role)
-        return EvaluationOutput(
-            verdict=verdict,
-            rationale=rationale,
-            recommendation=recommendation,
         )
 
 

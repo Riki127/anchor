@@ -44,7 +44,9 @@ uvicorn app.main:app --reload --port 8000
 The API listens on `http://localhost:8000` (`GET /health` returns `{"status":"ok"}`).
 Tables are created automatically on startup. Existing PostgreSQL databases receive
 an automatic additive upgrade for profiles, role ladders, session snapshots,
-adaptive decisions, and usage records; existing assessment data is preserved.
+adaptive decisions, and usage records; existing assessment data is preserved. The
+retired employee identity table and its now-unused columns are dropped
+automatically as part of the same startup migration.
 
 The database URL can be overridden with the `DATABASE_URL` environment variable; it
 defaults to `postgresql+psycopg://postgres:postgres@localhost:5432/employee_eval`.
@@ -118,9 +120,9 @@ deployment containing sensitive employee information. Browser storage remembers
 the profile; completed history is restored from the API. In-progress conversation
 recovery after a reload is not implemented.
 
-Legacy completed sessions remain readable through `GET /sessions/{id}`. The legacy
-title-only session creation endpoint remains compatible; new personalized sessions
-require a person, resolved role, and selected tier.
+Every session requires a resolved profile, role, and selected tier. The earlier
+title-only session-creation flow and its separate employee identity have been
+removed; there is no prior deployment or external caller to keep compatible with.
 
 Provider setup remains controlled by environment variables as above. Each adaptive
 provider operation records its model and input/output token counts in `AIUsage`,

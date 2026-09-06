@@ -1,7 +1,7 @@
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from app.schemas import AdaptiveTurnOutput, ResolvePersonRequest, StartSessionRequest
+from app.schemas import AdaptiveTurnOutput, ResolvePersonRequest
 
 
 def test_adaptive_continue_output_requires_a_question():
@@ -47,12 +47,6 @@ def test_adaptive_continue_output_rejects_a_blank_question():
                 "question": "   ",
             }
         )
-
-
-def test_start_session_request_accepts_legacy_role_title():
-    request = StartSessionRequest.model_validate({"role_title": "Software Engineer"})
-
-    assert request.role_title == "Software Engineer"
 
 
 def test_resolve_person_request_rejects_a_blank_display_name():

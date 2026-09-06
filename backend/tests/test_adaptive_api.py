@@ -133,13 +133,8 @@ def test_invalid_provider_bounds_retain_answer(db_session):
     assert not db_session.exec(select(Evaluation)).all()
 
 
-def test_role_reuse_legacy_snapshot_and_invalid_ids(db_session):
-    legacy = Role(title='Software Engineer', rubric={'old': 'preserved'})
-    db_session.add(legacy)
-    db_session.commit()
+def test_role_resolution_snapshot_is_immutable_and_ids_are_validated(db_session):
     client, person, role, start = setup_flow(db_session)
-    assert role['id'] == legacy.id
-    assert db_session.get(Role, legacy.id).rubric == {'old': 'preserved'}
     assert client.post('/roles/resolve', json={'title': role['title']}).json() == role
     assert len(db_session.exec(select(AIUsage).where(AIUsage.operation == 'resolve_role_ladder')).all()) == 1
     snapshot = db_session.get(AssessmentSession, start['session_id'])
@@ -147,28 +142,22 @@ def test_role_reuse_legacy_snapshot_and_invalid_ids(db_session):
     assert snapshot.role_title == 'Software Engineer'
     assert snapshot.next_tier_id == role['ladder']['tiers'][1]['id']
     assert snapshot.next_tier_name == role['ladder']['tiers'][1]['name']
-    legacy.title = 'Renamed role'
-    legacy.ladder = {**legacy.ladder, 'tiers': [{**legacy.ladder['tiers'][0], 'expectations': ['changed']}]}
-    db_session.add(legacy)
+    live_role = db_session.get(Role, role['id'])
+    live_role.title = 'Renamed role'
+    live_role.ladder = {**live_role.ladder, 'tiers': [{**live_role.ladder['tiers'][0], 'expectations': ['changed']}]}
+    db_session.add(live_role)
     db_session.commit()
     db_session.refresh(snapshot)
     assert snapshot.selected_expectations == expected
     assert snapshot.role_title == 'Software Engineer'
     assert snapshot.next_tier_name == role['ladder']['tiers'][1]['name']
     payload = dict(person_id=person['id'], role_id=role['id'], tier_id='associate')
-    for changed, code in [({'tier_id': 'unknown'}, 422), ({'person_id': 99999}, 404), ({'role_id': 99999}, 404), ({'role_title': 'mixed'}, 422)]:
+    for changed, code in [({'tier_id': 'unknown'}, 422), ({'person_id': 99999}, 404), ({'role_id': 99999}, 404), ({'unexpected': 'field'}, 422)]:
         assert client.post('/sessions', json={**payload, **changed}).status_code == code
     assert client.get('/people/99999/status').status_code == 404
     assert client.get('/sessions/99999').status_code == 404
     assert client.post('/sessions/99999/answer', json={'answer': 'x', 'item_id': 1}).status_code == 404
     assert client.post(f"/sessions/{start['session_id']}/answer", json={'answer': 'x', 'item_id': 99999}).status_code == 409
-
-
-def test_adaptive_role_remains_compatible_with_legacy_start(db_session):
-    client, _, role, _ = setup_flow(db_session)
-    result = client.post('/sessions', json={'role_title': role['title']})
-    assert result.status_code == 200
-    assert result.json()['role_id'] == role['id']
 
 
 def test_concurrent_same_answer_advances_once(db_session):
@@ -232,13 +221,8 @@ def test_concurrent_normalized_person_resolves_share_history_owner(db_session):
     assert len(db_session.exec(select(Person)).all()) == 1
 
 
-@pytest.mark.parametrize('legacy', [False, True])
 @pytest.mark.parametrize('alias', [False, True])
-def test_concurrent_role_resolves_share_committed_ladder(db_session, legacy, alias):
-    if legacy:
-        db_session.add(Role(title='Software Engineer', rubric={'preserved': True}))
-        db_session.commit()
-
+def test_concurrent_role_resolves_share_committed_ladder(db_session, alias):
     class ChangingLadder(MockAIProvider):
         generations = 0
 
@@ -323,33 +307,6 @@ def test_invalid_ladder_rejected_atomically(db_session, invalid):
     assert TestClient(app).post('/roles/resolve', json={'title': 'Engineer'}).status_code == 502
     assert not db_session.exec(select(Role)).all()
     assert not db_session.exec(select(AIUsage)).all()
-
-
-def test_exact_title_match_wins_over_provider_semantic_mismatch(db_session):
-    other = Role(title='Backend Engineer', rubric={'preserved': True})
-    legacy = Role(title='Software Engineer', rubric={'preserved': True})
-    db_session.add(other)
-    db_session.add(legacy)
-    db_session.commit()
-    db_session.refresh(other)
-    db_session.refresh(legacy)
-
-    class DisagreeingMatch(MockAIProvider):
-        def resolve_role_ladder(self, title, existing_roles):
-            result = super().resolve_role_ladder(title, existing_roles)
-            result.output.matched_role_id = other.id
-            return result
-
-    app.dependency_overrides[get_session] = lambda: db_session
-    app.dependency_overrides[get_ai_provider] = DisagreeingMatch
-    response = TestClient(app).post('/roles/resolve', json={'title': 'Software Engineer'})
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body['id'] == legacy.id
-    assert body['ladder']['tiers']
-    db_session.refresh(other)
-    assert other.ladder is None
 
 
 def test_start_failure_has_no_partial_session(db_session):

@@ -29,7 +29,6 @@ class TurnDecision(str, Enum):
 class Role(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
-    rubric: dict = Field(sa_column=Column(JSON))
     rubric_version: int = 1
     ladder: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -42,17 +41,11 @@ class Person(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class Employee(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str
-
-
 class AssessmentSession(SQLModel, table=True):
     __tablename__ = "session"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    employee_id: Optional[int] = Field(default=None, foreign_key="employee.id")
-    person_id: Optional[int] = Field(default=None, foreign_key="person.id")
+    person_id: int = Field(foreign_key="person.id")
     role_id: int = Field(foreign_key="role.id")
     rubric_version: Optional[int] = None
     selected_tier_id: Optional[str] = None
