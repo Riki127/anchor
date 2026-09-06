@@ -1,3 +1,5 @@
+import re
+
 from app.ai.base import (
     AdaptiveAssessmentConstraints,
     ProviderResult,
@@ -17,6 +19,22 @@ from app.schemas import (
 )
 
 _MODEL = "deterministic-v1"
+
+_SENIORITY_WORDS = frozenset(
+    {
+        "associate",
+        "junior",
+        "jr",
+        "mid",
+        "midlevel",
+        "senior",
+        "sr",
+        "staff",
+        "principal",
+        "lead",
+    }
+)
+_ROLE_WORD_ALIASES = {"developer": "engineer"}
 
 _GENERIC_RUBRIC = RoleRubric(
     current_tier_expectations=[
@@ -152,13 +170,20 @@ class MockAIProvider:
 
 
 def _find_matching_role(title: str, existing_roles: list[Role]) -> Role | None:
-    normalized = title.strip().lower()
-    normalized_words = set(normalized.split())
+    canonical_title = _canonical_role_title(title)
     for role in existing_roles:
-        role_title = role.title.strip().lower()
-        if normalized == role_title or normalized_words & set(role_title.split()):
+        if canonical_title and canonical_title == _canonical_role_title(role.title):
             return role
     return None
+
+
+def _canonical_role_title(title: str) -> tuple[str, ...]:
+    words = re.findall(r"[a-z0-9]+", title.casefold().replace("mid-level", "midlevel"))
+    return tuple(
+        _ROLE_WORD_ALIASES.get(word, word)
+        for word in words
+        if word not in _SENIORITY_WORDS
+    )
 
 
 def _build_ladder(title: str) -> TierRubric:

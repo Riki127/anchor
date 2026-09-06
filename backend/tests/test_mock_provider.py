@@ -43,6 +43,15 @@ def test_resolve_role_ladder_returns_stable_ordered_three_tier_ladder_with_usage
     assert first.usage.model == "deterministic-v1"
 
 
+def test_resolve_role_ladder_does_not_match_on_seniority_word_alone():
+    provider = MockAIProvider()
+    existing = [make_role(1, "Senior Software Engineer")]
+
+    result = provider.resolve_role_ladder("Senior Product Manager", existing)
+
+    assert result.output.matched_role_id is None
+
+
 def test_start_item_targets_the_first_selected_expectation():
     provider = MockAIProvider()
     snapshot = make_snapshot(["Own production delivery", "Explain trade-offs"])
@@ -118,7 +127,7 @@ def test_advance_assessment_evaluates_at_ten_answers_when_forced():
     assert result.output.verdict == Verdict.below
 
 
-def test_match_or_create_role_reuses_overlapping_title():
+def test_match_or_create_role_reuses_canonical_equivalent_title():
     provider = MockAIProvider()
     existing = [make_role(1, "Software Engineer")]
 
