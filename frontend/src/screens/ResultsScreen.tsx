@@ -14,7 +14,7 @@ const VERDICT_LABEL: Record<Verdict, string> = {
 
 export function ResultsScreen({ verdict, rationale, recommendation }: ResultsScreenProps) {
   return (
-    <div className="min-h-screen flex justify-center px-6 py-16">
+    <div>
       <div className="w-full max-w-lg">
         <p className="font-sans text-sm text-ink-muted mb-1">Where things stand</p>
         <p data-testid="verdict" className="font-serif text-xl text-ink mb-6">
@@ -25,7 +25,7 @@ export function ResultsScreen({ verdict, rationale, recommendation }: ResultsScr
         </p>
 
         <div className="bg-gold-light border border-gold/30 rounded-lg px-6 py-6">
-          <p className="font-sans text-sm font-medium text-ink mb-2">What to focus on next</p>
+          <h2 className="font-sans text-sm font-medium text-ink mb-2">What to focus on next</h2>
           <p data-testid="recommendation" className="font-serif text-lg leading-snug text-ink">
             {recommendation}
           </p>

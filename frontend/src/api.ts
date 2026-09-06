@@ -1,46 +1,41 @@
-import type { AnswerResponse, EmployeeStatus, SessionRead, SessionStartResponse } from "./types";
+import type { AnswerResponse, Person, PersonStatus, Role, SessionRead, SessionStartResponse } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
-export async function startSession(roleTitle: string): Promise<SessionStartResponse> {
-  const res = await fetch(`${API_BASE}/sessions`, {
+async function request<T>(path: string, data?: unknown): Promise<T> {
+  const response = await fetch(API_BASE + path, data === undefined ? undefined : {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role_title: roleTitle }),
+    body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    throw new Error(`Failed to start session: ${res.status}`);
+  if (!response.ok) {
+    if (response.status === 502) {
+      throw new Error("The coach could not respond. Please retry with the same answer.");
+    }
+    if (response.status === 409) {
+      throw new Error(
+        "This answer conflicts with the saved session or the session is complete. " +
+        "Retry the original answer, or return home to view saved results.",
+      );
+    }
+    throw new Error(`Could not load or save this information (${response.status}). Please try again.`);
   }
-  return res.json();
+  return response.json() as Promise<T>;
 }
 
-export async function submitAnswer(sessionId: number, answer: string): Promise<AnswerResponse> {
-  const res = await fetch(`${API_BASE}/sessions/${sessionId}/answer`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ answer }),
-  });
-  if (res.status === 409) {
-    throw new Error("This session has already been completed.");
-  }
-  if (!res.ok) {
-    throw new Error(`Failed to submit answer: ${res.status}`);
-  }
-  return res.json();
-}
+export const resolvePerson = (display_name: string) =>
+  request<Person>("/people/resolve", { display_name });
 
-export async function getSession(sessionId: number): Promise<SessionRead> {
-  const res = await fetch(`${API_BASE}/sessions/${sessionId}`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch session: ${res.status}`);
-  }
-  return res.json();
-}
+export const getPersonStatus = (id: number) =>
+  request<PersonStatus>(`/people/${id}/status`);
 
-export async function getEmployeeStatus(): Promise<EmployeeStatus> {
-  const res = await fetch(`${API_BASE}/employee/status`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch status: ${res.status}`);
-  }
-  return res.json();
-}
+export const resolveRole = (title: string) =>
+  request<Role>("/roles/resolve", { title });
+
+export const startSession = (person_id: number, role_id: number, tier_id: string) =>
+  request<SessionStartResponse>("/sessions", { person_id, role_id, tier_id });
+
+export const submitAnswer = (id: number, item_id: number, answer: string) =>
+  request<AnswerResponse>(`/sessions/${id}/answer`, { item_id, answer });
+
+export const getSession = (id: number) => request<SessionRead>(`/sessions/${id}`);

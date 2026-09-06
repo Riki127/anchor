@@ -1,97 +1,44 @@
-import { useEffect, useState } from "react";
-
-import { getEmployeeStatus } from "../api";
-import { formatRelativeTime } from "../relativeTime";
-import type { EmployeeStatus } from "../types";
+import type { PersonStatus } from "../types";
 
 interface HomeScreenProps {
-  onStartNew: () => void;
-  onViewLast: (sessionId: number) => void;
+  status: PersonStatus | null;
   isLoading: boolean;
-  error: string | null;
+  onStartNew: () => void;
+  onSwitchProfile: () => void;
+  onRetry: () => void;
+  onViewResult: (id: number) => void;
 }
 
-export function HomeScreen({ onStartNew, onViewLast, isLoading, error }: HomeScreenProps) {
-  const [status, setStatus] = useState<EmployeeStatus | null>(null);
-
-  useEffect(() => {
-    getEmployeeStatus()
-      .then(setStatus)
-      .catch(() => setStatus({ has_completed_session: false }));
-  }, []);
-
-  if (status === null) {
-    return <div className="min-h-screen" />;
-  }
-
-  if (!status.has_completed_session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6">
-        <div className="w-full max-w-lg">
-          <p className="font-sans text-sm text-ink-muted mb-3">Welcome</p>
-          <p className="font-serif text-3xl leading-snug text-ink mb-4">
-            This is a space to check in on how things are going.
-          </p>
-          <p className="font-sans text-ink-muted leading-relaxed mb-8">
-            No grading, no pass or fail — just an honest conversation and a clear, personal next
-            step, whenever you're ready for it.
-          </p>
-          {error && (
-            <p className="font-sans text-sm text-rose mb-5" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            data-testid="get-started-button"
-            className="font-sans font-medium text-paper-light bg-teal px-5 py-3 rounded-md disabled:opacity-50 hover:bg-teal/90 transition-colors"
-            disabled={isLoading}
-            onClick={onStartNew}
-          >
-            Get started
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const lastCheckIn = status.last_completed_at ? formatRelativeTime(status.last_completed_at) : null;
-
+export function HomeScreen({ status, isLoading, onStartNew, onSwitchProfile, onRetry, onViewResult }: HomeScreenProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center px-6">
-      <div className="w-full max-w-lg">
-        <p className="font-sans text-sm text-ink-muted mb-3">Welcome back</p>
-        <p className="font-serif text-3xl leading-snug text-ink mb-4">
-          {lastCheckIn ? `Last check-in: ${lastCheckIn}.` : "Ready for another check-in?"}
-        </p>
-        <p className="font-sans text-ink-muted leading-relaxed mb-8">
-          Want to see how things have evolved, or revisit what came out of it last time?
-        </p>
-        {error && (
-          <p className="font-sans text-sm text-rose mb-5" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-3">
-          <button
-            data-testid="start-new-button"
-            className="font-sans font-medium text-paper-light bg-teal px-5 py-3 rounded-md disabled:opacity-50 hover:bg-teal/90 transition-colors"
-            disabled={isLoading}
-            onClick={onStartNew}
-          >
-            Start a new check-in
-          </button>
-          {status.last_session_id !== null && status.last_session_id !== undefined && (
-            <button
-              data-testid="view-last-button"
-              className="font-sans font-medium text-ink border border-ink/20 px-5 py-3 rounded-md disabled:opacity-50 hover:bg-ink/5 transition-colors"
-              disabled={isLoading}
-              onClick={() => onViewLast(status.last_session_id as number)}
-            >
-              {isLoading ? "Loading..." : "View my last result"}
-            </button>
+    <>
+      <p className="mb-6">
+        Explore where you stand and what to focus on next, in your current role
+        or one you are considering.
+      </p>
+      <button disabled={isLoading || !status} onClick={onStartNew}>Start a new check-in</button>
+      {!status && !isLoading && <button onClick={onRetry}>Retry loading profile</button>}
+      <button className="secondary" disabled={isLoading} onClick={onSwitchProfile}>Switch profile</button>
+      {status && (
+        <section className="mt-10">
+          <h2 className="font-serif text-xl mb-4">Your completed check-ins</h2>
+          {status.sessions.length === 0 ? <p>No completed check-ins yet.</p> : (
+            <ul className="space-y-4">
+              {status.sessions.map((session) => (
+                <li key={session.id} className="border-t border-ink-muted pt-4">
+                  <p>{session.role_title} · {session.selected_tier_name}</p>
+                  <p className="text-sm">
+                    {new Date(session.completed_at).toLocaleDateString()} · {session.verdict} expectations
+                  </p>
+                  <button className="secondary" disabled={isLoading} onClick={() => onViewResult(session.id)}>
+                    View result · {session.role_title}
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
-      </div>
-    </div>
+        </section>
+      )}
+    </>
   );
 }
