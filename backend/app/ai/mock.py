@@ -1,5 +1,22 @@
-from app.models import QAPair, Role, Verdict
-from app.schemas import EvaluationOutput, QuestionOutput, RoleMatchResult, RoleRubric
+from app.ai.base import (
+    AdaptiveAssessmentConstraints,
+    ProviderResult,
+    RoleLadderResolution,
+    Usage,
+)
+from app.models import AssessmentSession, QAPair, Role, Verdict
+from app.schemas import (
+    ContinueTurnOutput,
+    EvaluateTurnOutput,
+    EvaluationOutput,
+    QuestionOutput,
+    RoleMatchResult,
+    RoleRubric,
+    RoleTier,
+    TierRubric,
+)
+
+_MODEL = "deterministic-v1"
 
 _GENERIC_RUBRIC = RoleRubric(
     current_tier_expectations=[
@@ -26,15 +43,98 @@ _QUESTION_POOL = [
 
 
 class MockAIProvider:
+    provider_name = "mock"
+
+    def resolve_role_ladder(
+        self, title: str, existing_roles: list[Role]
+    ) -> ProviderResult[RoleLadderResolution]:
+        matched_role = _find_matching_role(title, existing_roles)
+        if matched_role is not None and matched_role.ladder is not None:
+            ladder = TierRubric.model_validate(matched_role.ladder)
+        else:
+            ladder = _build_ladder(title)
+
+        return ProviderResult(
+            output=RoleLadderResolution(
+                matched_role_id=matched_role.id if matched_role is not None else None,
+                ladder=ladder,
+            ),
+            usage=Usage(input_tokens=24, output_tokens=96, model=_MODEL),
+        )
+
+    def start_item(
+        self, session: AssessmentSession
+    ) -> ProviderResult[ContinueTurnOutput]:
+        expectations = list(session.selected_expectations)
+        target = expectations[0] if expectations else "your core role responsibilities"
+        return ProviderResult(
+            output=ContinueTurnOutput(
+                decision="continue",
+                confidence=0,
+                covered_expectations=[],
+                remaining_uncertainties=expectations or [target],
+                question=_targeted_question(target),
+            ),
+            usage=Usage(input_tokens=18, output_tokens=32, model=_MODEL),
+        )
+
+    def advance_assessment(
+        self,
+        role: Role,
+        snapshot: AssessmentSession,
+        history: list[QAPair],
+        constraints: AdaptiveAssessmentConstraints,
+    ) -> ProviderResult[ContinueTurnOutput | EvaluateTurnOutput]:
+        answered = [item for item in history if item.answer is not None]
+        expectations = list(snapshot.selected_expectations)
+        covered_count = min(len(answered), len(expectations))
+        covered = expectations[:covered_count]
+        remaining = expectations[covered_count:]
+        enough_detail = bool(answered) and all(
+            len((item.answer or "").strip()) >= 80 for item in answered
+        )
+
+        must_continue = len(answered) < constraints.minimum_answers
+        should_evaluate = not must_continue and (
+            constraints.force_evaluate or enough_detail
+        )
+
+        if should_evaluate:
+            average_length = sum(len((item.answer or "").strip()) for item in answered) / len(
+                answered
+            )
+            verdict, rationale, recommendation = _evaluation_for(average_length, role)
+            output: ContinueTurnOutput | EvaluateTurnOutput = EvaluateTurnOutput(
+                decision="evaluate",
+                confidence=0.95 if enough_detail else 0.7,
+                covered_expectations=covered,
+                remaining_uncertainties=remaining,
+                verdict=verdict,
+                rationale=rationale,
+                recommendation=recommendation,
+            )
+        else:
+            target = _next_target(snapshot, remaining)
+            output = ContinueTurnOutput(
+                decision="continue",
+                confidence=min(0.85, 0.25 + len(answered) * 0.15),
+                covered_expectations=covered,
+                remaining_uncertainties=remaining or [target],
+                question=_targeted_question(target),
+            )
+
+        return ProviderResult(
+            output=output,
+            usage=Usage(input_tokens=48 + len(answered) * 12, output_tokens=44, model=_MODEL),
+        )
+
+    # Compatibility methods remain until the session API migrates to the unified contract.
     def match_or_create_role(self, title: str, existing_roles: list[Role]) -> RoleMatchResult:
-        normalized = title.strip().lower()
-        normalized_words = set(normalized.split())
-
-        for role in existing_roles:
-            role_words = set(role.title.strip().lower().split())
-            if normalized == role.title.strip().lower() or normalized_words & role_words:
-                return RoleMatchResult(matched_role_id=role.id, rubric=RoleRubric(**role.rubric))
-
+        matched_role = _find_matching_role(title, existing_roles)
+        if matched_role is not None:
+            return RoleMatchResult(
+                matched_role_id=matched_role.id, rubric=RoleRubric(**matched_role.rubric)
+            )
         return RoleMatchResult(matched_role_id=None, rubric=_GENERIC_RUBRIC)
 
     def generate_next_question(self, role: Role, qa_history: list[QAPair]) -> QuestionOutput:
@@ -42,22 +142,85 @@ class MockAIProvider:
         return QuestionOutput(question=_QUESTION_POOL[index % len(_QUESTION_POOL)])
 
     def evaluate_session(self, role: Role, qa_history: list[QAPair]) -> EvaluationOutput:
-        avg_len = sum(len(qa.answer or "") for qa in qa_history) / len(qa_history)
-
-        if avg_len < 40:
-            return EvaluationOutput(
-                verdict=Verdict.below,
-                rationale="Answers were brief and lacked concrete detail relative to role expectations.",
-                recommendation="Practice giving specific, detailed examples (STAR format) for common work scenarios.",
-            )
-        if avg_len < 120:
-            return EvaluationOutput(
-                verdict=Verdict.meeting,
-                rationale="Answers showed solid, specific examples matching current-tier expectations.",
-                recommendation="Look for opportunities to lead a small initiative end-to-end to build toward the next tier.",
-            )
+        average_length = sum(len(qa.answer or "") for qa in qa_history) / len(qa_history)
+        verdict, rationale, recommendation = _evaluation_for(average_length, role)
         return EvaluationOutput(
-            verdict=Verdict.exceeding,
-            rationale="Answers consistently showed depth and initiative beyond current-tier expectations.",
-            recommendation="Seek out mentoring opportunities and larger-scope initiatives to formalize readiness for the next tier.",
+            verdict=verdict,
+            rationale=rationale,
+            recommendation=recommendation,
         )
+
+
+def _find_matching_role(title: str, existing_roles: list[Role]) -> Role | None:
+    normalized = title.strip().lower()
+    normalized_words = set(normalized.split())
+    for role in existing_roles:
+        role_title = role.title.strip().lower()
+        if normalized == role_title or normalized_words & set(role_title.split()):
+            return role
+    return None
+
+
+def _build_ladder(title: str) -> TierRubric:
+    role_title = title.strip() or "this role"
+    return TierRubric(
+        career_ladder_summary=f"A three-tier progression for {role_title} from supported delivery to broad leadership.",
+        tiers=[
+            RoleTier(
+                id="associate",
+                name="Associate",
+                expectations=[
+                    "Delivers scoped work with guidance",
+                    "Builds fluency in the role's core skills",
+                ],
+            ),
+            RoleTier(
+                id="mid",
+                name="Mid-level",
+                expectations=[
+                    "Owns outcomes independently",
+                    "Communicates decisions and trade-offs clearly",
+                ],
+            ),
+            RoleTier(
+                id="senior",
+                name="Senior",
+                expectations=[
+                    "Leads ambiguous initiatives across teams",
+                    "Raises the effectiveness of other people",
+                ],
+            ),
+        ],
+    )
+
+
+def _next_target(snapshot: AssessmentSession, remaining: list[str]) -> str:
+    if remaining:
+        return remaining[0]
+    if snapshot.next_expectations:
+        return snapshot.next_expectations[0]
+    return "another concrete example of impact in your role"
+
+
+def _targeted_question(target: str) -> str:
+    return f'Tell me about a specific example that demonstrates "{target}". What did you do and what changed?'
+
+
+def _evaluation_for(average_length: float, role: Role) -> tuple[Verdict, str, str]:
+    if average_length < 40:
+        return (
+            Verdict.below,
+            "Answers were brief and lacked concrete detail relative to role expectations.",
+            "Practice giving specific, detailed examples (STAR format) for common work scenarios.",
+        )
+    if average_length < 120:
+        return (
+            Verdict.meeting,
+            f"Answers showed solid, specific examples matching expectations for {role.title}.",
+            "Look for opportunities to lead a small initiative end-to-end to build toward the next tier.",
+        )
+    return (
+        Verdict.exceeding,
+        f"Answers consistently showed depth and initiative beyond expectations for {role.title}.",
+        "Seek out mentoring opportunities and larger-scope initiatives to formalize readiness for the next tier.",
+    )
