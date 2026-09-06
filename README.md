@@ -93,10 +93,18 @@ The dev server listens on `http://localhost:5173`. It calls the backend at
 
 Open <http://localhost:5173> and enter a display name to create or reuse a prototype
 profile. Its home screen shows completed assessment history. Enter a role, review
-its generated ladder, and select the tier whose expectations you want to explore.
-Each session saves its rubric version, selected tier, expectations, and next-tier
+its suggested ladder, select the tier whose expectations you want to explore, and
+confirm the ladder fits your assessment. AI suggestions are not verified industry
+standards or employer-approved frameworks. If the suggestion does not fit, go back
+and change the role; importing HR/manager-defined ladders remains future work.
+Each session saves its role title, rubric version, selected and next tier names/IDs, and their
 expectations as an immutable snapshot, so later ladder changes do not alter its
 assessment context.
+
+Assessment prompts restrict role and level references to the saved names. Older
+sessions without a saved next-tier name use neutral next-level wording instead of
+guessing a title. This is a model instruction, not a guarantee that generated prose
+cannot hallucinate; role-ladder quality still requires human review.
 
 The conversation adapts to your answers and completes after 3–10 questions. The
 terminal adaptive provider call returns the evaluation directly, with no separate

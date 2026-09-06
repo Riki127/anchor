@@ -57,6 +57,9 @@ class AssessmentSession(SQLModel, table=True):
     rubric_version: Optional[int] = None
     selected_tier_id: Optional[str] = None
     selected_tier_name: Optional[str] = None
+    role_title: Optional[str] = None
+    next_tier_id: Optional[str] = None
+    next_tier_name: Optional[str] = None
     selected_expectations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     next_expectations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     status: SessionStatus = Field(default=SessionStatus.in_progress)

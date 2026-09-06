@@ -141,7 +141,7 @@ def get_session_detail(session_id: int, db: Session = Depends(get_session)) -> S
         selected_tier_name=session.selected_tier_name,
         id=session.id,
         status=session.status.value,
-        role_title=role.title,
+        role_title=session.role_title or role.title,
         qa_pairs=[QAPairRead(item_id=qa.id, order=qa.order, question=qa.question, answer=qa.answer) for qa in qa_pairs],
         verdict=evaluation.verdict.value if evaluation else None,
         rationale=evaluation.rationale if evaluation else None,

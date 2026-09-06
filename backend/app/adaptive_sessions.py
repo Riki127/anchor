@@ -23,10 +23,13 @@ def start(body: StartSessionRequest, db: Session, provider: AIProvider) -> Sessi
     if index is None:
         raise HTTPException(422, 'Unknown tier')
     tier = tiers[index]
+    next_tier = tiers[index + 1] if index + 1 < len(tiers) else None
     session = AssessmentSession(person_id=body.person_id, role_id=role.id,
+        role_title=role.title, next_tier_id=next_tier.id if next_tier else None,
+        next_tier_name=next_tier.name if next_tier else None,
         rubric_version=role.rubric_version, selected_tier_id=tier.id, selected_tier_name=tier.name,
         selected_expectations=list(tier.expectations),
-        next_expectations=list(tiers[index + 1].expectations) if index + 1 < len(tiers) else [])
+        next_expectations=list(next_tier.expectations) if next_tier else [])
     try:
         result = provider.start_item(session)
         output = ContinueTurnOutput.model_validate(result.output.model_dump())

@@ -1,5 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { begin, goToStartScreen, detailed } from './helpers';
+
+test('suggested ladder requires review before continuing', async ({ page }) => {
+    await goToStartScreen(page);
+    await page.getByLabel('Role to explore').fill('Software Engineer');
+    await page.getByRole('button', { name: 'Explore role' }).click();
+    await page.getByRole('radio').first().check();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByRole('checkbox', { name: /reviewed/ })).toBeFocused();
+    await expect(page.getByText(/not an employer-approved or verified/)).toBeVisible();
+    await page.getByRole('checkbox', { name: /reviewed/ }).check();
+    await page.getByRole('radio').nth(1).check();
+    await expect(page.getByRole('checkbox', { name: /reviewed/ })).not.toBeChecked();
+    await page.getByRole('checkbox', { name: /reviewed/ }).check();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByRole('button', { name: 'Start the conversation' })).toBeVisible();
+    await page.getByRole('button', { name: 'Back to levels' }).click();
+    await expect(page.getByRole('checkbox', { name: /reviewed/ })).not.toBeChecked();
+});
 test('provider failure keeps the answer and item for retry', async ({ page }) => {
     await begin(page);
     const submissions: unknown[] = [];
@@ -44,6 +62,8 @@ test('keyboard profile and tier selection preserve role and tier on back', async
     await page.keyboard.press('Space');
     await page.keyboard.press('ArrowDown');
     const choice = await page.locator('input:checked').inputValue();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Space');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('conversation');

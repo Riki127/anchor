@@ -57,6 +57,39 @@ def test_bounds_history_and_usage(db_session, answer, count):
     assert all(u.provider == 'mock' and u.model and u.input_tokens > 0 and u.output_tokens > 0 for u in usages)
 
 
+@pytest.mark.parametrize('legacy', [False, True])
+def test_session_and_history_keep_saved_role_title_after_rename(db_session, legacy):
+    client, person, role, start = setup_flow(db_session)
+    current = start
+    for _ in range(3):
+        current = client.post(f"/sessions/{start['session_id']}/answer",
+            json={'item_id': current['item_id'], 'answer': 'Detailed evidence ' * 10}).json()
+    assert current['status'] == 'completed'
+    saved = db_session.get(AssessmentSession, start['session_id'])
+    if legacy:
+        saved.role_title = None
+        db_session.add(saved)
+    live_role = db_session.get(Role, role['id'])
+    live_role.title = 'Renamed role'
+    db_session.add(live_role)
+    db_session.commit()
+    expected = 'Renamed role' if legacy else 'Software Engineer'
+    assert client.get(f"/sessions/{start['session_id']}").json()['role_title'] == expected
+    history = client.get(f"/people/{person['id']}/status").json()['sessions']
+    assert history[0]['role_title'] == expected
+
+
+def test_highest_tier_has_no_next_name_or_expectations(db_session):
+    client, person, role, _ = setup_flow(db_session)
+    response = client.post('/sessions', json={'person_id': person['id'], 'role_id': role['id'],
+        'tier_id': role['ladder']['tiers'][-1]['id']})
+    assert response.status_code == 200
+    saved = db_session.get(AssessmentSession, response.json()['session_id'])
+    assert saved.next_tier_id is None
+    assert saved.next_tier_name is None
+    assert saved.next_expectations == []
+
+
 def test_failure_retains_answer_and_retries_once(db_session):
     class Failing(MockAIProvider):
         def advance_assessment(self, *args):
@@ -111,11 +144,17 @@ def test_role_reuse_legacy_snapshot_and_invalid_ids(db_session):
     assert len(db_session.exec(select(AIUsage).where(AIUsage.operation == 'resolve_role_ladder')).all()) == 1
     snapshot = db_session.get(AssessmentSession, start['session_id'])
     expected = list(snapshot.selected_expectations)
+    assert snapshot.role_title == 'Software Engineer'
+    assert snapshot.next_tier_id == role['ladder']['tiers'][1]['id']
+    assert snapshot.next_tier_name == role['ladder']['tiers'][1]['name']
+    legacy.title = 'Renamed role'
     legacy.ladder = {**legacy.ladder, 'tiers': [{**legacy.ladder['tiers'][0], 'expectations': ['changed']}]}
     db_session.add(legacy)
     db_session.commit()
     db_session.refresh(snapshot)
     assert snapshot.selected_expectations == expected
+    assert snapshot.role_title == 'Software Engineer'
+    assert snapshot.next_tier_name == role['ladder']['tiers'][1]['name']
     payload = dict(person_id=person['id'], role_id=role['id'], tier_id='associate')
     for changed, code in [({'tier_id': 'unknown'}, 422), ({'person_id': 99999}, 404), ({'role_id': 99999}, 404), ({'role_title': 'mixed'}, 422)]:
         assert client.post('/sessions', json={**payload, **changed}).status_code == code

@@ -73,7 +73,7 @@ def person_status(
         ).first()
         history.append(CompletedSessionSummary(
             id=session.id,
-            role_title=role.title,
+            role_title=session.role_title or role.title,
             selected_tier_name=session.selected_tier_name,
             completed_at=session.completed_at,
             verdict=evaluation.verdict if evaluation else None,

@@ -12,6 +12,7 @@ export async function begin(page: Page) {
     await page.getByLabel('Role to explore').fill('Software Engineer');
     await page.getByRole('button', { name: 'Explore role' }).click();
     await page.getByRole('radio').first().check();
+    await page.getByRole('checkbox', { name: /reviewed/ }).check();
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.getByRole('button', { name: 'Start the conversation' }).click();
 }

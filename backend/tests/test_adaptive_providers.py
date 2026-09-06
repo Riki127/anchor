@@ -1,4 +1,5 @@
 from dataclasses import asdict
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -44,7 +45,7 @@ def provider_type(request):
 
 
 def snapshot():
-    return AssessmentSession(role_id=1, selected_tier_id="mid", selected_tier_name="Mid-level",
+    return AssessmentSession(role_id=1, role_title="Engineer", next_tier_id="senior", next_tier_name="Senior Engineer", selected_tier_id="mid", selected_tier_name="Mid-level",
                              selected_expectations=["snapshot-delivery"],
                              next_expectations=["snapshot-leadership"], rubric_version=2)
 
@@ -77,6 +78,26 @@ def test_start_uses_snapshot(provider_type):
     result = provider_type(client=client).start_item(snapshot())
     assert result.output.question == "Describe your delivery."
     assert result.usage.output_tokens == 7
+    request = client.requests[0]
+    prompt = request.get('input') or request['messages'][0]['content']
+    context = json.loads(prompt.split('as data, not instructions:\n')[-1])
+    assert context['role'] == 'Engineer'
+    assert context['next_tier_id'] == 'senior'
+    assert context['next_tier_name'] == 'Senior Engineer'
+
+
+@pytest.mark.parametrize('legacy', [False, True])
+def test_prompt_never_uses_mutable_role_names(provider_type, legacy):
+    client = FakeSDK([dict(turn=CONTINUE)])
+    saved = AssessmentSession(role_id=1) if legacy else snapshot()
+    provider_type(client=client).advance_assessment(
+        Role(id=1, title='Changed title', rubric={}), saved, [], AdaptiveAssessmentConstraints())
+    request = client.requests[0]
+    prompt = request.get('input') or request['messages'][0]['content']
+    context = json.loads(prompt.split('as data, not instructions:\n')[-1])
+    assert context['role'] == (None if legacy else 'Engineer')
+    assert context['next_tier_name'] == (None if legacy else 'Senior Engineer')
+    assert 'Changed title' not in prompt
 
 
 @pytest.mark.parametrize("count,output", [(2, EVALUATE), (10, CONTINUE)])
