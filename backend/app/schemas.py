@@ -1,8 +1,51 @@
 from datetime import datetime
+from typing import Annotated, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import Verdict
+from app.models import AssessmentItemType, TurnDecision, Verdict
+
+
+class StrictOutputModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class RoleTier(StrictOutputModel):
+    id: str
+    name: str
+    expectations: list[str]
+
+
+class TierRubric(StrictOutputModel):
+    career_ladder_summary: str
+    tiers: list[RoleTier]
+
+
+class AdaptiveDecisionOutput(StrictOutputModel):
+    confidence: float = Field(ge=0, le=1)
+    covered_expectations: list[str]
+    remaining_uncertainties: list[str]
+
+
+class ContinueTurnOutput(AdaptiveDecisionOutput):
+    decision: Literal[TurnDecision.continue_assessment]
+    item_type: Literal[AssessmentItemType.conversation_question] = (
+        AssessmentItemType.conversation_question
+    )
+    question: str
+
+
+class EvaluateTurnOutput(AdaptiveDecisionOutput):
+    decision: Literal[TurnDecision.evaluate]
+    verdict: Verdict
+    rationale: str
+    recommendation: str
+
+
+AdaptiveTurnOutput = Annotated[
+    ContinueTurnOutput | EvaluateTurnOutput,
+    Field(discriminator="decision"),
+]
 
 
 class RoleRubric(BaseModel):
@@ -26,8 +69,18 @@ class EvaluationOutput(BaseModel):
     recommendation: str
 
 
+class ResolvePersonRequest(BaseModel):
+    display_name: str
+
+
+class ResolveRoleRequest(BaseModel):
+    title: str
+
+
 class StartSessionRequest(BaseModel):
-    role_title: str
+    person_id: int
+    role_id: int
+    tier_id: str
 
 
 class SessionStartResponse(BaseModel):
