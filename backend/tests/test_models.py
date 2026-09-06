@@ -2,7 +2,7 @@ from sqlalchemy import inspect, text
 from sqlmodel import Session
 
 from app.db import create_db_and_tables
-from app.models import AssessmentSession, Employee, QAPair, Role
+from app.models import AssessmentSession, Employee, Person, QAPair, Role
 
 
 def test_role_and_employee_round_trip(db_session: Session):
@@ -102,6 +102,7 @@ def test_startup_migrates_legacy_tables_without_rewriting_existing_data(
         ],
         "qapair": ["item_type", "turn_decision"],
     }
+    db_session.execute(text('ALTER TABLE "session" ALTER COLUMN employee_id SET NOT NULL'))
     for table_name, column_names in legacy_columns.items():
         for column_name in column_names:
             db_session.execute(
@@ -124,3 +125,10 @@ def test_startup_migrates_legacy_tables_without_rewriting_existing_data(
     assert persisted_role.rubric == {"current_tier_expectations": ["ships"]}
     assert persisted_session.employee_id == employee.id
     assert persisted_item.question == "What did you ship?"
+    db_session.rollback()
+    create_db_and_tables(db_session.get_bind())  # idempotent
+    person = Person(display_name="New profile")
+    db_session.add(person)
+    db_session.flush()
+    db_session.add(AssessmentSession(person_id=person.id, role_id=role.id))
+    db_session.commit()

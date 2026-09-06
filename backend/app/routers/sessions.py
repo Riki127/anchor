@@ -8,6 +8,7 @@ from app.db import get_session
 from app.employees import get_or_seed_employee
 from app.models import Evaluation, QAPair, Role, AssessmentSession, SessionStatus
 from app.config import settings
+from app import adaptive_sessions
 from app.schemas import AnswerRequest, AnswerResponse, QAPairRead, SessionRead, SessionStartResponse, StartSessionRequest
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -19,6 +20,8 @@ def start_session(
     db: Session = Depends(get_session),
     provider: AIProvider = Depends(get_ai_provider),
 ) -> SessionStartResponse:
+    if body.person_id is not None:
+        return adaptive_sessions.start(body, db, provider)
     employee = get_or_seed_employee(db)
     existing_roles = list(db.exec(select(Role)).all())
     try:
@@ -62,6 +65,8 @@ def submit_answer(
     session = db.get(AssessmentSession, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.person_id is not None:
+        return adaptive_sessions.answer(session_id, body, db, provider)
     if session.status == SessionStatus.completed:
         raise HTTPException(status_code=409, detail="Session already completed")
 
@@ -131,10 +136,13 @@ def get_session_detail(session_id: int, db: Session = Depends(get_session)) -> S
     evaluation = db.exec(select(Evaluation).where(Evaluation.session_id == session_id)).first()
 
     return SessionRead(
+        person_id=session.person_id,
+        selected_tier_id=session.selected_tier_id,
+        selected_tier_name=session.selected_tier_name,
         id=session.id,
         status=session.status.value,
         role_title=role.title,
-        qa_pairs=[QAPairRead(order=qa.order, question=qa.question, answer=qa.answer) for qa in qa_pairs],
+        qa_pairs=[QAPairRead(item_id=qa.id, order=qa.order, question=qa.question, answer=qa.answer) for qa in qa_pairs],
         verdict=evaluation.verdict.value if evaluation else None,
         rationale=evaluation.rationale if evaluation else None,
         recommendation=evaluation.recommendation if evaluation else None,

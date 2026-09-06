@@ -9,6 +9,7 @@ from app.config import settings
 engine = create_engine(settings.database_url, echo=False)
 
 _ADAPTIVE_COLUMN_MIGRATIONS = (
+    'ALTER TABLE "session" ALTER COLUMN "employee_id" DROP NOT NULL',
     'ALTER TABLE "role" ADD COLUMN IF NOT EXISTS "rubric_version" INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE "role" ADD COLUMN IF NOT EXISTS "ladder" JSON',
     'ALTER TABLE "session" ADD COLUMN IF NOT EXISTS "person_id" INTEGER REFERENCES "person" ("id")',

@@ -23,12 +23,18 @@ NonEmptyString = Annotated[
 class RoleTier(StrictOutputModel):
     id: NonEmptyString
     name: NonEmptyString
-    expectations: list[NonEmptyString]
+    expectations: list[NonEmptyString] = Field(min_length=1)
 
 
 class TierRubric(StrictOutputModel):
     career_ladder_summary: NonEmptyString
-    tiers: list[RoleTier]
+    tiers: list[RoleTier] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_tiers(self):
+        if len({tier.id for tier in self.tiers}) != len(self.tiers):
+            raise ValueError("tier IDs must be unique")
+        return self
 
 
 class AdaptiveDecisionOutput(StrictOutputModel):
@@ -87,6 +93,30 @@ class ResolveRoleRequest(StrictRequestModel):
     title: NonEmptyString
 
 
+class PersonRead(BaseModel):
+    id: int
+    display_name: str
+
+
+class CompletedSessionSummary(BaseModel):
+    id: int
+    role_title: str
+    selected_tier_name: str | None
+    completed_at: datetime | None
+    verdict: Verdict | None
+
+
+class PersonStatus(PersonRead):
+    sessions: list[CompletedSessionSummary]
+
+
+class RoleRead(BaseModel):
+    id: int
+    title: str
+    rubric_version: int
+    ladder: TierRubric
+
+
 class StartSessionRequest(StrictRequestModel):
     person_id: int | None = Field(default=None, gt=0)
     role_id: int | None = Field(default=None, gt=0)
@@ -98,22 +128,26 @@ class StartSessionRequest(StrictRequestModel):
         has_adaptive_ids = all(
             value is not None for value in (self.person_id, self.role_id, self.tier_id)
         )
-        if self.role_title is None and not has_adaptive_ids:
+        any_ids = any(value is not None for value in (self.person_id, self.role_id, self.tier_id))
+        if (self.role_title is not None and any_ids) or (self.role_title is None and not has_adaptive_ids):
             raise ValueError("provide role_title or person_id, role_id, and tier_id")
         return self
 
 
 class SessionStartResponse(BaseModel):
+    item_id: int | None = None
     session_id: int
     role_id: int
     question: str
 
 
 class AnswerRequest(BaseModel):
+    item_id: int | None = Field(default=None, gt=0)
     answer: str
 
 
 class AnswerResponse(BaseModel):
+    item_id: int | None = None
     status: str
     question: str | None = None
     verdict: str | None = None
@@ -122,12 +156,16 @@ class AnswerResponse(BaseModel):
 
 
 class QAPairRead(BaseModel):
+    item_id: int | None = None
     order: int
     question: str
     answer: str | None
 
 
 class SessionRead(BaseModel):
+    person_id: int | None = None
+    selected_tier_id: str | None = None
+    selected_tier_name: str | None = None
     id: int
     status: str
     role_title: str
