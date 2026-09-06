@@ -45,3 +45,20 @@ role reuse and legacy role regeneration; and mixed legacy/adaptive role reuse.
 Migration test reconstructs old columns with employee_id NOT NULL, runs migration,
 checks preserved legacy data, reruns migration for idempotence, and inserts a
 person-only session. Production/user DBs were not reset.
+
+## Review fix round 1
+
+Resolution now acquires PostgreSQL transaction advisory locks before lookup:
+normalized person name keys serialize same-profile creation; one role-resolution
+key covers provider-defined role aliases and legacy upgrades. Queries refresh
+existing ORM state after obtaining the lock. Committed ladders are reused without
+overwriting their version, and response objects are captured before commit releases
+the lock. No deduplication or data migration was performed. Profile router formatting
+and response annotations were cleaned up; answer row locking was unchanged.
+
+Added real concurrent HTTP requests with separate PostgreSQL sessions: eight
+normalized profile requests share one person; concurrent same/alias role requests
+against both new and legacy roles generate one committed ladder, return identical
+role/ladder/version, and every returned tier starts a valid session. All four role
+concurrency regressions failed before the fix. Final full backend suite:
+**101 passed** using the same Python command and dedicated employee_eval_test DB.

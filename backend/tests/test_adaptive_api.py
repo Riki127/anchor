@@ -1,11 +1,15 @@
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+from time import sleep
+
 from fastapi.testclient import TestClient
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from app.ai import get_ai_provider
 from app.ai.mock import MockAIProvider
 from app.db import get_session
 from app.main import app
-from app.models import AIUsage, QAPair, AssessmentSession, Role, Evaluation
+from app.models import AIUsage, QAPair, AssessmentSession, Role, Evaluation, Person
 from app.ai.base import ProviderResult
 from app.schemas import EvaluateTurnOutput
 import pytest
@@ -129,9 +133,6 @@ def test_adaptive_role_remains_compatible_with_legacy_start(db_session):
 
 
 def test_concurrent_same_answer_advances_once(db_session):
-    from concurrent.futures import ThreadPoolExecutor
-    from threading import Barrier
-    from sqlmodel import Session
 
     class Spy(MockAIProvider):
         calls = 0
@@ -161,6 +162,73 @@ def test_concurrent_same_answer_advances_once(db_session):
     assert results[0].json() == results[1].json()
     assert provider.calls == 1
     assert len(db_session.exec(select(QAPair)).all()) == 2
+
+
+def concurrent_posts(db_session, path, payloads):
+    engine = db_session.get_bind()
+    db_session.rollback()
+
+    def independent_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = independent_session
+    barrier = Barrier(len(payloads))
+
+    def submit(payload):
+        barrier.wait(timeout=5)
+        return TestClient(app).post(path, json=payload)
+
+    with ThreadPoolExecutor(max_workers=len(payloads)) as pool:
+        results = list(pool.map(submit, payloads))
+    assert all(result.status_code == 200 for result in results)
+    return [result.json() for result in results]
+
+
+def test_concurrent_normalized_person_resolves_share_history_owner(db_session):
+    results = concurrent_posts(db_session, '/people/resolve', [
+        {'display_name': name} for name in [' Ada Lovelace ', 'ada   lovelace'] * 4
+    ])
+    assert len({result['id'] for result in results}) == 1
+    assert len(db_session.exec(select(Person)).all()) == 1
+
+
+@pytest.mark.parametrize('legacy', [False, True])
+@pytest.mark.parametrize('alias', [False, True])
+def test_concurrent_role_resolves_share_committed_ladder(db_session, legacy, alias):
+    if legacy:
+        db_session.add(Role(title='Software Engineer', rubric={'preserved': True}))
+        db_session.commit()
+
+    class ChangingLadder(MockAIProvider):
+        generations = 0
+
+        def resolve_role_ladder(self, title, existing_roles):
+            result = super().resolve_role_ladder(title, existing_roles)
+            if not existing_roles or not existing_roles[0].ladder:
+                self.generations += 1
+                result.output.ladder.tiers[0].id = f'generated-{self.generations}'
+                sleep(.05)  # Widen the race between lookup and committing the ladder.
+            return result
+
+    provider = ChangingLadder()
+    app.dependency_overrides[get_ai_provider] = lambda: provider
+    results = concurrent_posts(db_session, '/roles/resolve', [
+        {'title': 'Software Engineer'},
+        {'title': 'Software Developer' if alias else 'Software Engineer'},
+    ])
+    assert results[0] == results[1]
+    assert provider.generations == 1
+    assert len(db_session.exec(select(Role)).all()) == 1
+    db_session.rollback()
+    client = TestClient(app)
+    person = client.post('/people/resolve', json={'display_name': 'Ada'}).json()
+    for result in results:
+        started = client.post('/sessions', json={
+            'person_id': person['id'], 'role_id': result['id'],
+            'tier_id': result['ladder']['tiers'][0]['id'],
+        })
+        assert started.status_code == 200
 
 
 @pytest.mark.parametrize('invalid', ['unknown_match', 'empty_tiers', 'duplicate_ids', 'empty_expectations'])
