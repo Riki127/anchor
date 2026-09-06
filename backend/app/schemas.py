@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.models import AssessmentItemType, TurnDecision, Verdict
 
@@ -10,21 +10,31 @@ class StrictOutputModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class StrictRequestModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+NonEmptyString = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1),
+]
+
+
 class RoleTier(StrictOutputModel):
-    id: str
-    name: str
-    expectations: list[str]
+    id: NonEmptyString
+    name: NonEmptyString
+    expectations: list[NonEmptyString]
 
 
 class TierRubric(StrictOutputModel):
-    career_ladder_summary: str
+    career_ladder_summary: NonEmptyString
     tiers: list[RoleTier]
 
 
 class AdaptiveDecisionOutput(StrictOutputModel):
     confidence: float = Field(ge=0, le=1)
-    covered_expectations: list[str]
-    remaining_uncertainties: list[str]
+    covered_expectations: list[NonEmptyString]
+    remaining_uncertainties: list[NonEmptyString]
 
 
 class ContinueTurnOutput(AdaptiveDecisionOutput):
@@ -32,14 +42,14 @@ class ContinueTurnOutput(AdaptiveDecisionOutput):
     item_type: Literal[AssessmentItemType.conversation_question] = (
         AssessmentItemType.conversation_question
     )
-    question: str
+    question: NonEmptyString
 
 
 class EvaluateTurnOutput(AdaptiveDecisionOutput):
     decision: Literal[TurnDecision.evaluate]
     verdict: Verdict
-    rationale: str
-    recommendation: str
+    rationale: NonEmptyString
+    recommendation: NonEmptyString
 
 
 AdaptiveTurnOutput = Annotated[
@@ -69,18 +79,28 @@ class EvaluationOutput(BaseModel):
     recommendation: str
 
 
-class ResolvePersonRequest(BaseModel):
-    display_name: str
+class ResolvePersonRequest(StrictRequestModel):
+    display_name: NonEmptyString
 
 
-class ResolveRoleRequest(BaseModel):
-    title: str
+class ResolveRoleRequest(StrictRequestModel):
+    title: NonEmptyString
 
 
-class StartSessionRequest(BaseModel):
-    person_id: int
-    role_id: int
-    tier_id: str
+class StartSessionRequest(StrictRequestModel):
+    person_id: int | None = Field(default=None, gt=0)
+    role_id: int | None = Field(default=None, gt=0)
+    tier_id: NonEmptyString | None = None
+    role_title: NonEmptyString | None = None
+
+    @model_validator(mode="after")
+    def require_legacy_title_or_adaptive_ids(self) -> "StartSessionRequest":
+        has_adaptive_ids = all(
+            value is not None for value in (self.person_id, self.role_id, self.tier_id)
+        )
+        if self.role_title is None and not has_adaptive_ids:
+            raise ValueError("provide role_title or person_id, role_id, and tier_id")
+        return self
 
 
 class SessionStartResponse(BaseModel):

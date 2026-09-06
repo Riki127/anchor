@@ -1,7 +1,7 @@
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from app.schemas import AdaptiveTurnOutput
+from app.schemas import AdaptiveTurnOutput, ResolvePersonRequest, StartSessionRequest
 
 
 def test_adaptive_continue_output_requires_a_question():
@@ -32,3 +32,36 @@ def test_adaptive_continue_output_accepts_a_question():
     )
 
     assert output.question == "What did you deliver?"
+
+
+def test_adaptive_continue_output_rejects_a_blank_question():
+    adapter = TypeAdapter(AdaptiveTurnOutput)
+
+    with pytest.raises(ValidationError):
+        adapter.validate_python(
+            {
+                "decision": "continue",
+                "confidence": 0.6,
+                "covered_expectations": ["delivery"],
+                "remaining_uncertainties": ["scope"],
+                "question": "   ",
+            }
+        )
+
+
+def test_start_session_request_accepts_legacy_role_title():
+    request = StartSessionRequest.model_validate({"role_title": "Software Engineer"})
+
+    assert request.role_title == "Software Engineer"
+
+
+def test_resolve_person_request_rejects_a_blank_display_name():
+    with pytest.raises(ValidationError):
+        ResolvePersonRequest.model_validate({"display_name": "   "})
+
+
+def test_resolve_person_request_rejects_unknown_fields():
+    with pytest.raises(ValidationError):
+        ResolvePersonRequest.model_validate(
+            {"display_name": "Jordan Lee", "unexpected": "value"}
+        )
